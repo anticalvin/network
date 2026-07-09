@@ -1,65 +1,781 @@
-const DISCORD='https://discord.gg/3hTnm3Pgy2';
-const SOCIAL_LINKS={instagram:'https://www.instagram.com/awakencult/',x:'https://x.com/awakencult',youtube:'https://www.youtube.com/@awakencult'};
-const apps=[
- {id:'readme',label:'README.txt',icon:'R',cls:'ico-readme',type:'readme'},
- {id:'social',label:'CULTFEED',icon:'CF',cls:'ico-social',type:'social'},
- {id:'music',label:'MUSIC.EXE',icon:'M',cls:'ico-music',type:'music'},
- {id:'collection',label:'COLLECTION.EXE',icon:'C',cls:'ico-collection',type:'collection'},
- {id:'discord',label:'DISCORD.LNK',icon:'D',cls:'ico-discord',type:'discord'},
- {id:'archive',label:'ARCHIVE',icon:'A',cls:'ico-archive',type:'archive'},
- {id:'aim',label:'AIM_CHAT',icon:'AIM',cls:'ico-aim',type:'aim'},
- {id:'memory',label:'MEMORY_CARD',icon:'PS2',cls:'ico-memory',type:'memory'},
- {id:'tv',label:'CHANNEL_TV',icon:'TV',cls:'ico-tv',type:'tv'},
- {id:'downloads',label:'DOWNLOADS',icon:'DL',cls:'ico-downloads',type:'downloads'},
- {id:'trash',label:'TRASH',icon:'X',cls:'ico-trash',type:'trash'}
+const BOOT_MESSAGES = [
+  "AWAKEN OS v4.2",
+  "A:\\",
+  "Loading user profile...",
+  "Restoring previous session...",
+  "3 unread transmissions",
+  "2 recovered archives",
+  "1 corrupted drive",
+  "Welcome back."
 ];
-const socialPosts=[
- {src:'Instagram relay',date:'RECOVERED POST',text:'Noise Collection & Magazine Out Now. All Seeing Hoodie. Restock of older collections also available. Enjoy ☻',tag:'@awakencult'},
- {src:'X relay',date:'2021 cache',text:'NEW SWAG WHO DIS? — Single by AWAKEN CULT, Josh Otis & PARI$. Listen now on your favorite streaming service.',tag:'release.link'},
- {src:'YouTube relay',date:'old upload cache',text:'SUNNY - Josh Otis visualizer / PLANETPRADA - PARI$ / AWAKE audio fragments indexed.',tag:'video archive'}
+
+const LINKS = {
+  website: "https://awakencult.com/",
+  instagram: "https://instagram.com/awakencult",
+  x: "https://x.com/awakencult",
+  youtube: "https://www.youtube.com/@awakencult",
+  discord: "https://discord.gg/3hTnm3Pgy2",
+  vzn: "https://vzn.awakencult.com/",
+  noise: "https://noise.awakencult.com/",
+  soundcloud: "https://soundcloud.com/awakencult",
+  appleArtist: "https://music.apple.com/za/artist/awaken-cult/1448907538"
+};
+
+const PROJECTS = [
+  {
+    id: "xp",
+    title: "XP",
+    type: "EP",
+    year: "2019",
+    path: "A:\\Archive\\2019\\XP",
+    installed: "2019-01-08",
+    size: "5 tracks",
+    health: 92,
+    status: "Recovered",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/93/7f/3f/937f3f4b-ff02-3056-e2cb-7bc517439a65/628810044061.png/600x600bb.jpg",
+    url: "https://music.apple.com/za/album/xp-ep/1448922005",
+    tags: ["xp", "ep", "2019", "hip-hop", "archive"],
+    readme: "Xp - EP. AWAKEN CULT catalog release. Copyright listed as 2017 AWAKEN CULT; Apple Music release date 2019-01-08.",
+    tracks: ["Poppin' Off", "White Flowers", "Hard", "Shoot"]
+  },
+  {
+    id: "hated",
+    title: "HATED",
+    type: "Album",
+    year: "2019",
+    path: "A:\\Archive\\2019\\HATED",
+    installed: "2019-10-11",
+    size: "15 tracks",
+    health: 98,
+    status: "Recovered",
+    cover: "assets/img/hated.webp",
+    url: "https://music.apple.com/za/album/hated-deluxe-edition/1483667677",
+    tags: ["hated", "album", "deluxe", "2019", "josh otis", "dav33"],
+    readme: "Hated (Deluxe Edition). AWAKEN CULT ENTERPRISE (PTY) LTD. Apple Music lists 15 tracks and an Alternative genre tag.",
+    tracks: ["OYE", "Due Time", "Hop Out", "Welsh Ponies", "Human", "Run"]
+  },
+  {
+    id: "xpv2",
+    title: "XPV2",
+    type: "EP",
+    year: "2021",
+    path: "A:\\Archive\\2021\\XPV2",
+    installed: "2021-07-01",
+    size: "4 tracks",
+    health: 87,
+    status: "Partial",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/64/6e/54/646e5467-9fa2-9c45-9d05-913edd219757/artwork.jpg/600x600bb.jpg",
+    url: "https://music.apple.com/za/album/xpv2-ep/1574765564",
+    tags: ["xpv2", "xp", "2021", "dav33", "nashe"],
+    readme: "XPV2 - EP. AWAKEN ENTERPRISES (PTY) LTD. Apple Music release date 2021-07-01.",
+    tracks: ["JUDUS.", "CRYSTAL.", "HEAVN."]
+  },
+  {
+    id: "new-swag",
+    title: "NEW SWAG WHO DIS?",
+    type: "Single",
+    year: "2021",
+    path: "A:\\Archive\\2021\\NEW_SWAG_WHO_DIS",
+    installed: "2021-08-20",
+    size: "1 track",
+    health: 91,
+    status: "Recovered",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f9/d1/b5/f9d1b508-1832-9201-a5c4-ea4a29db210a/artwork.jpg/600x600bb.jpg",
+    url: "https://music.apple.com/za/album/new-swag-who-dis-feat-josh-otis-pari%24-single/1581835842",
+    tags: ["new swag", "josh otis", "pari", "single", "2021"],
+    readme: "NEW SWAG WHO DIS? featuring Josh Otis and PARI$. Apple Music release date 2021-08-20.",
+    tracks: ["NEW SWAG WHO DIS?"]
+  },
+  {
+    id: "central-african-time",
+    title: "CENTRAL AFRICAN TIME",
+    type: "Single",
+    year: "2022",
+    path: "A:\\Archive\\2022\\CENTRAL_AFRICAN_TIME",
+    installed: "2022-04-22",
+    size: "1 track",
+    health: 95,
+    status: "Recovered",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/c8/01/39/c801390d-1ba5-9073-c99f-5afaa1eba600/artwork.jpg/600x600bb.jpg",
+    url: "https://music.apple.com/za/album/central-african-time-feat-josh-otis-single/1620423087",
+    tags: ["central african time", "cat", "josh otis", "2022", "single"],
+    readme: "CENTRAL AFRICAN TIME featuring Josh Otis. Apple Music lists Hip-Hop/Rap and Worldwide genre tags.",
+    tracks: ["CENTRAL AFRICAN TIME"]
+  },
+  {
+    id: "state-of-mind",
+    title: "State Of Mind",
+    type: "EP",
+    year: "2022",
+    path: "A:\\Archive\\2022\\STATE_OF_MIND",
+    installed: "2022-06-28",
+    size: "5 tracks",
+    health: 93,
+    status: "Recovered",
+    cover: "assets/img/state-of-mind-updated.jpg",
+    url: "https://music.apple.com/za/album/state-of-mind-ep/1656676894",
+    tags: ["state of mind", "rush hour", "piccadilly circus", "noise", "josh otis", "nashe"],
+    readme: "State Of Mind - EP. Includes Rush Hour, 22, Noise, and Piccadilly Circus in verified Apple Music metadata.",
+    tracks: ["Rush Hour", "22", "Noise", "Piccadilly Circus"]
+  },
+  {
+    id: "noise",
+    title: "NOISE",
+    type: "Tool / Collection",
+    year: "2026",
+    path: "A:\\Archive\\2026\\NOISE",
+    installed: "2026-07-09",
+    size: "public web tool",
+    health: 89,
+    status: "Online",
+    cover: "assets/img/secret-photo.webp",
+    url: LINKS.noise,
+    tags: ["noise", "artwork", "tool", "canvas", "export"],
+    readme: "NOISE is live at noise.awakencult.com. Public page describes an offline node graph, mobile stack, overlays, format nodes, and export presets.",
+    tracks: []
+  }
 ];
-const bootMessages=['AWAKEN NETWORK BIOS v06.26','CPU: CULT CORE / 256MB MEMORY','detecting old hard drive... OK','mounting XP fragments... OK','checking AIM buddies... 5 online','reading PS2 memory card... corrupted save found','tuning channel 04... static','loading social relay @awakencult... fallback cache online','press ENTER to boot'];
-const popupData=[
- {t:'AWAKEN NETWORK SECURITY',b:'Your signal is exposed. Scan archive now?',kind:'virus',cta:'SCAN'},
- {t:'2 EASY PMTS OF $20.15',b:'GET GIFTS IRL // AWAKEN DELIVERY CACHE',kind:'gif',cta:'CLAIM'},
- {t:'COLLECTION DETECTED',b:'4 garments found. Preview thumbnails corrupted.',kind:'ad',cta:'OPEN'},
- {t:'CALL MY LAWYER',b:'MARKET Studios Creative Dept. wants this window closed.',kind:'blue',cta:'IGNORE'},
- {t:'AIM SYSTEM MSG',b:'A newer version of AWAKEN CHAT is available. Continue using this one?',kind:'ad',cta:'CONTINUE'},
- {t:'FREE WALLPAPER PACK',b:'Download boot screen, icon sheet, signal poster.',kind:'gif',cta:'DOWNLOAD'}
+
+const APPS = [
+  { id: "archive", title: "Archive", kind: "Folder", icon: "A:", action: () => openExplorer("A:\\Archive") },
+  { id: "music", title: "Music", kind: "Program", icon: "MP", action: openMusic },
+  { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
+  { id: "live", title: "LIVE INTERNET", kind: "Program", icon: "IN", action: openLiveInternet },
+  { id: "vzn", title: "VZN", kind: "Link", icon: "VZ", action: () => openPortal("VZN", LINKS.vzn, "Spatial social world by AWAKEN CULT.") },
+  { id: "noise-app", title: "NOISE", kind: "Link", icon: "N0", action: () => openPortal("NOISE", LINKS.noise, "Artwork node graph and export tool.") },
+  { id: "soundcloud", title: "SoundCloud", kind: "Link", icon: "SC", action: () => openPortal("SoundCloud", LINKS.soundcloud, "Stream tracks, albums, playlists, and AWAKEN CULT profile audio.") },
+  { id: "terminal", title: "Terminal", kind: "Program", icon: ">_", action: openTerminal },
+  { id: "settings", title: "Settings", kind: "Program", icon: "ST", action: openSettings },
+  { id: "trash", title: "Trash", kind: "Folder", icon: "TR", action: () => openText("Trash", "A:\\Trash is empty.\nRecovered files are not deleted. They wait.") }
 ];
-let z=20,logoClicks=0,sound=true,bootDone=false,konami=[],openWindows=new Map();
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-window.addEventListener('DOMContentLoaded',init);
-function init(){makeBeep();$('#bootButton').addEventListener('click',finishBoot);$('#boot').addEventListener('click',e=>{if(e.target.id!=='bootButton')finishBoot()});document.addEventListener('keydown',globalKeys);runBoot();}
-function runBoot(){let i=0;const pre=$('#bootLines'),bar=$('#bootProgress');function next(){pre.textContent+=bootMessages[i]+'\n';bar.style.width=((i+1)/bootMessages.length*100)+'%';i++; if(i<bootMessages.length)setTimeout(next,230+Math.random()*180);else bootDone=true;}next();}
-function finishBoot(){if(!bootDone){bootDone=true}$('#boot').classList.add('hidden');$('#app').classList.remove('hidden');renderDesktop();tickClock();setInterval(tickClock,1000);setTimeout(()=>openApp('readme'),450);setTimeout(()=>openApp('social'),900);setTimeout(()=>spawnAd(),1600);setInterval(()=>Math.random()<.38&&spawnAd(),8500);toast('AWAKEN NETWORK ONLINE');}
-function renderDesktop(){const icons=$('#icons');icons.innerHTML='';apps.forEach(a=>{const b=document.createElement('button');b.className='desk-icon';b.dataset.open=a.id;b.innerHTML=`<span class="icon-img ${a.cls}">${a.icon}</span><span class="icon-label">${a.label}</span>`;icons.appendChild(b)});document.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){openApp(open.dataset.open);playBeep()} });$('#startBtn').onclick=()=>$('#startMenu').classList.toggle('hidden');$('#muteBtn').onclick=()=>{sound=!sound;$('#muteBtn').textContent=sound?'SND ON':'SND OFF';toast(sound?'sound enabled':'sound muted')};$('#panicBtn').onclick=()=>{spawnAd('AWAKEN NETWORK SECURITY');spawnAd('SYSTEM WARNING');toast('scan started')};$('#shutdownBtn').onclick=()=>{toast('shutdown cancelled. system wants to stay awake.');$('#startMenu').classList.add('hidden')};$('.boot-logo')?.addEventListener('click',()=>{});$('.start-chip').addEventListener('dblclick',()=>spawnAd('SECRET START MENU'));$('.hero-terminal').addEventListener('click',()=>{logoClicks++; if(logoClicks===5){toast('UNKNOWN_USER unlocked');openApp('aim','unknown_user')}})}
-function tickClock(){const d=new Date();$('#clock').textContent=d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});$('#signalText').textContent='SIGNAL: '+(58+Math.floor(Math.random()*23))+'%'}
-function globalKeys(e){if($('#boot')&&!$('#boot').classList.contains('hidden')&&(e.key==='Enter'))finishBoot();konami.push(e.key.toLowerCase());konami=konami.slice(-10);if(konami.join(',')==='arrowup,arrowup,arrowdown,arrowdown,arrowleft,arrowright,arrowleft,arrowright,b,a'){toast('secret transmission unlocked');openApp('archive','secret');document.body.classList.add('glitch');setTimeout(()=>document.body.classList.remove('glitch'),900)} if(e.key.toLowerCase()==='x')window._xTyped=(window._xTyped||'')+'x'; const typed=(window._typed=(window._typed||'')+e.key.toLowerCase()).slice(-8); if(typed.includes('xp')){openApp('memory');window._typed='';}}
-function openApp(id,param){const app=apps.find(a=>a.id===id);if(!app)return;$('#startMenu').classList.add('hidden');if(openWindows.has(id)){const win=openWindows.get(id);win.style.zIndex=++z;win.classList.add('active');return}const win=document.createElement('section');win.className='window active';win.dataset.id=id;win.style.zIndex=++z;let pos=randomPos();win.style.left=pos.x+'px';win.style.top=pos.y+'px';win.innerHTML=`<header class="titlebar"><span>${app.label}</span><span class="controls"><button data-min="${id}">_</button><button data-close="${id}">×</button></span></header><div class="window-body">${renderBody(app,param)}</div>`;$('#windows').appendChild(win);openWindows.set(id,win);makeDrag(win);updateTasks();wireWindow(win,id);}
-function randomPos(){const w=window.innerWidth;return {x:Math.max(8,Math.min(130,Math.floor(Math.random()*160))),y:Math.max(8,Math.min(120,Math.floor(Math.random()*130)))} }
-function renderBody(app,param){switch(app.type){
- case 'readme': return `<div class="notepad">AWAKEN NETWORK README\n\nThis is not a store yet. It is the machine before the drop.\n\nOpen files. Trigger ads. Break windows. Follow the social relay.\n\nTips:\n- type XP anywhere\n- use ↑ ↑ ↓ ↓ ← → ← → B A\n- click the terminal 5 times\n- some ads unlock real windows\n\nNEXT PATCH:\nmusic snippets / collection thumbnails / roles / archive uploads</div>`;
- case 'discord': return `<div class="dialog"><h2>SERVER FOUND</h2><p>AWAKEN CULT COMMUNITY<br>connection available. enter room?</p><p><a class="red-button" target="_blank" href="${DISCORD}">ENTER ROOM</a> <button class="xp-button" data-action="spawn">NOT NOW</button></p><small>Invite: ${DISCORD}</small></div>`;
- case 'music': return `<div class="winamp"><div class="winamp-top">AWAKEN WINAMP 2.06<br>NOW PLAYING: UNKNOWN SIGNAL<br>source: AWAKEN CULT // quality: damaged</div><div class="eq">${'<i></i>'.repeat(18)}</div><div class="playlist"><div class="track"><span>1. UNKNOWN SIGNAL</span><span>00:17</span></div><div class="track"><span>2. XPV2 FRAGMENT</span><span>00:09</span></div><div class="track locked"><span>3. REDACTED</span><span>--:--</span></div><div class="track locked"><span>4. CENTRAL AFRICAN TIME DEMO</span><span>locked</span></div></div><div class="music-controls"><button class="xp-button" data-action="play">PLAY TONE</button><button class="xp-button" data-action="glitch">VISUALIZE</button></div></div>`;
- case 'collection': return `<h3>COLLECTION PACKAGE</h3><pre>PACKAGE STATUS: INCOMPLETE\ngarments detected: 04\npublic preview: disabled\ninstall date: unknown</pre><div class="inventory-grid">${[1,2,3,4].map(i=>`<div class="garment"><b>GARMENT_0${i}.pkg</b><small>metadata damaged</small></div>`).join('')}</div><p><button class="xp-button" data-action="ad">RUN INSTALLER</button></p>`;
- case 'archive': return `<div class="browserbar"><button>Back</button><input value="C:\\AWAKEN\\ARCHIVE${param==='secret'?'\\SECRET':''}" readonly></div><pre>Recovered files may be incomplete. Some folders require a stronger signal.</pre><div class="file-list">${['XP','XPV2','HATED','STATE_OF_MIND','CENTRAL_AFRICAN_TIME','NOISE_COLLECTION','VISUALS','FINAL_FINAL.psd','CORRUPTED_SAVE','transmission.wav'].map((n,i)=>`<div class="file-row"><span>${i>6?'?':'▣'}</span><span>${n}</span><span>${i>7?'2kb':'locked'}</span><span>200${i%8+1}-??-??</span></div>`).join('')}</div>`;
- case 'social': return `<div class="social-shell"><div class="social-header"><span>CULTFEED / social relay</span><span>@awakencult</span></div><div class="profile"><div class="profile-eye">◉</div><div><b>AWAKEN CULT</b><br><small>art / fashion / music / signal</small><p><a class="xp-button" target="_blank" href="${SOCIAL_LINKS.instagram}">Instagram</a> <a class="xp-button" target="_blank" href="${SOCIAL_LINKS.x}">X</a> <a class="xp-button" target="_blank" href="${SOCIAL_LINKS.youtube}">YouTube</a></p></div></div>${socialPosts.map(p=>`<article class="feed-card"><header><b>${p.src}</b><small>${p.date}</small></header><div class="feed-media"></div><p>${p.text}</p><p><small>${p.tag}</small></p></article>`).join('')}</div>`;
- case 'aim': return renderAim(param);
- case 'memory': return `<div class="memory-screen"><div class="memory-head"><span>Memory Card (PS2) / 1</span><span>AWAKEN</span></div><div class="saves">${['XP','XPV2','HATED','STATE','C.A.T','COLL_26','VISUALS','???'].map(s=>`<button class="save"><span class="save-icon"></span><span>${s}</span></button>`).join('')}</div><div class="ps-footer"><span>✕ Enter</span><span>○ Back</span><span>△ Options</span></div></div>`;
- case 'tv': return `<div class="tv-screen"><div class="tv-content"><div>AWAKEN PUBLIC ACCESS</div><div class="tv-price">$20.15</div><div>2 EASY PAYMENTS OF SIGNAL</div><div class="tv-phone">1-800-AWAKE-UP</div><button class="xp-button" data-action="channel">NEXT CHANNEL</button></div></div>`;
- case 'downloads': return `<div class="file-list">${['wallpaper_pack.zip','boot_animation.mov','icon_sheet.ico','flyer_print.pdf','screensaver.scr','discord_invite.url'].map((n,i)=>`<div class="file-row"><span>⬇</span><span>${n}</span><span>${i===5?'link':'pending'}</span><span>${i+1}.${i}MB</span></div>`).join('')}</div><p><button class="xp-button" data-action="download">DOWNLOAD WALLPAPER</button></p>`;
- case 'trash': return `<div class="file-list">${['rejected_logo_03.gif','shirt_final_final_REAL.psd','cancelled_drop_names.txt','do_not_post.jpg','old_dvd_site.html','bad_idea.exe'].map(n=>`<div class="file-row"><span>✕</span><span>${n}</span><span>deleted</span><span>?</span></div>`).join('')}</div>`;
- default:return 'File missing.'}}
-function renderAim(openBuddy='music'){const buddies=['music','collection','archive','josh','discord','unknown_user'];return `<div class="social-shell"><div class="social-header"><span>AOL System Msg</span><span>Warning Level: 0%</span></div><div style="display:grid;grid-template-columns:130px 1fr;min-height:330px"><div style="background:#eee;border-right:1px solid #999;padding:8px">${buddies.map(b=>`<button class="xp-button aim-buddy" data-buddy="${b}" style="width:100%;margin-bottom:5px;text-align:left">${b}</button>`).join('')}</div><div style="padding:8px;background:#fff"><div id="aimLog" style="border:1px inset #999;min-height:230px;padding:8px;font-family:var(--mono)"></div><div style="margin-top:8px"><input style="width:78%" value="" placeholder="type message"><button class="xp-button" data-action="aim-send">Send</button></div></div></div></div>`}
-function wireWindow(win,id){win.addEventListener('mousedown',()=>{win.style.zIndex=++z;$$('.window').forEach(w=>w.classList.remove('active'));win.classList.add('active')});win.querySelector('[data-close]')?.addEventListener('click',()=>closeWin(id));win.querySelector('[data-min]')?.addEventListener('click',()=>{win.style.display='none';updateTasks()});win.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click',()=>handleAction(btn.dataset.action,id)));if(id==='aim'){const load=b=>{const log=win.querySelector('#aimLog');log.innerHTML=`<b>${b}</b> is typing...<br><br>`;setTimeout(()=>{log.innerHTML+=aimMsgs(b).map(m=>`<div><b>${b}:</b> ${m}</div>`).join('')},500)};win.querySelectorAll('.aim-buddy').forEach(b=>b.onclick=()=>load(b.dataset.buddy));load('music')} if(id==='memory')win.querySelectorAll('.save').forEach(s=>s.onclick=()=>toast('save file damaged: '+s.textContent.trim()))}
-function aimMsgs(b){return {music:['signal detected','not public yet','keep the player open'],collection:['package incomplete','4 garments detected','installer unstable'],archive:['some folders need stronger signal','do not trust final_final.psd'],josh:['still building','ask again later'],discord:['room is open',DISCORD],unknown_user:['...','you found this fast','konami code opens the real folder']}[b]||['away']}
-function handleAction(action,id){if(action==='play')playBeep(true); if(action==='glitch'){document.body.classList.add('glitch');setTimeout(()=>document.body.classList.remove('glitch'),600)} if(action==='spawn'||action==='ad')spawnAd(); if(action==='channel')spawnAd('TRANSMISSION INTERRUPTION'); if(action==='download')toast('download queued: wallpaper_pack.zip'); if(action==='aim-send')toast('message failed: server is awake but not listening')}
-function closeWin(id){openWindows.get(id)?.remove();openWindows.delete(id);updateTasks()}
-function updateTasks(){const t=$('#taskList');t.innerHTML='';openWindows.forEach((win,id)=>{const app=apps.find(a=>a.id===id);const b=document.createElement('button');b.textContent=app.label;b.onclick=()=>{win.style.display='flex';win.style.zIndex=++z};t.appendChild(b)})}
-function makeDrag(win){const bar=win.querySelector('.titlebar');let sx,sy,ox,oy,drag=false;bar.addEventListener('pointerdown',e=>{if(innerWidth<720)return;drag=true;sx=e.clientX;sy=e.clientY;ox=parseInt(win.style.left)||0;oy=parseInt(win.style.top)||0;bar.setPointerCapture(e.pointerId)});bar.addEventListener('pointermove',e=>{if(!drag)return;win.style.left=Math.max(0,ox+e.clientX-sx)+'px';win.style.top=Math.max(0,oy+e.clientY-sy)+'px'});bar.addEventListener('pointerup',()=>drag=false)}
-function spawnAd(title){const data=popupData.find(p=>p.t===title)||popupData[Math.floor(Math.random()*popupData.length)];const ad=document.createElement('div');ad.className='ad '+(data.kind==='virus'?'virus':'');ad.style.left=Math.max(8,Math.random()*(innerWidth-340))+'px';ad.style.top=Math.max(52,Math.random()*(innerHeight-280))+'px';ad.innerHTML=`<div class="ad-title"><span>${data.t}</span><button>×</button></div><div class="ad-body"><div class="${data.kind==='gif'||data.kind==='blue'?'ad-gif':''}">${data.kind==='gif'?'GIF GIFT IRL':data.kind==='blue'?'CALL TODAY':''}</div><p>${data.b}</p><button class="xp-button">${data.cta}</button></div>`;$('#popups').appendChild(ad);ad.querySelector('.ad-title button').onclick=()=>ad.remove();ad.querySelector('.ad-body button').onclick=()=>{playBeep(); if(data.t.includes('COLLECTION'))openApp('collection'); else if(data.t.includes('WALLPAPER'))openApp('downloads'); else if(data.t.includes('SECURITY')){openApp('archive','secret');toast('scan recovered one hidden file')} else spawnAd(); ad.remove()};setTimeout(()=>ad.isConnected&&ad.classList.add('glitch'),350)}
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2300)}
-function makeBeep(){const a=$('#beep');const ctxOK=typeof AudioContext!=='undefined'||typeof webkitAudioContext!=='undefined'; if(!ctxOK)return; // generated on demand instead
+
+const SOCIALS = [
+  { title: "Website", detail: "Official landing page", url: LINKS.website },
+  { title: "Instagram", detail: "Confirmed @awakencult profile. Public metadata showed 6,909 followers, 36 following, 77 posts during research.", url: LINKS.instagram },
+  { title: "X", detail: "Confirmed @awakencult profile. Public page lists Global, joined August 2017, 2,641 followers.", url: LINKS.x },
+  { title: "YouTube", detail: "Confirmed @awakencult channel. Public page lists 104 subscribers and 3 videos.", url: LINKS.youtube },
+  { title: "Discord", detail: "Primary community invite.", url: LINKS.discord },
+  { title: "VZN", detail: "Live app: Explore AWAKEN CULT's spatial social world.", url: LINKS.vzn },
+  { title: "NOISE", detail: "Live artwork tool with node graph, mobile editor, overlays, and export presets.", url: LINKS.noise },
+  { title: "SoundCloud", detail: "AWAKEN CULT music profile.", url: LINKS.soundcloud },
+  { title: "Apple Music", detail: "Verified artist catalog page.", url: LINKS.appleArtist }
+];
+
+const WALLPAPERS = [
+  { id: "awaken-red", title: "AWAKEN Red", color: "#da4a44", detail: "standard solid system wallpaper" },
+  { id: "xp-teal", title: "XP Teal", color: "#008080", detail: "classic desktop teal" },
+  { id: "xp-blue", title: "XP Blue", color: "#245edb", detail: "classic system blue" },
+  { id: "xp-olive", title: "XP Olive", color: "#6f7f2a", detail: "classic olive option" },
+  { id: "xp-silver", title: "XP Silver", color: "#b7bcc8", detail: "classic silver option" },
+  { id: "black", title: "Black", color: "#050505", detail: "low light terminal mode" }
+];
+
+const FILES = [
+  ...PROJECTS.map((project) => ({
+    name: `${project.title}.pkg`,
+    type: "Package",
+    size: project.size,
+    modified: project.installed,
+    path: project.path,
+    project: project.id,
+    tags: project.tags
+  })),
+  { name: "discord.url", type: "Link", size: "invite", modified: "live", path: "A:\\Community\\discord.url", url: LINKS.discord, tags: ["discord", "community"] },
+  { name: "vzn.lnk", type: "Link", size: "app", modified: "live", path: "A:\\Programs\\vzn.lnk", url: LINKS.vzn, tags: ["vzn", "social canvas"] },
+  { name: "noise.lnk", type: "Link", size: "app", modified: "live", path: "A:\\Programs\\noise.lnk", url: LINKS.noise, tags: ["noise", "art"] },
+  { name: "awaken-logo.webp", type: "Image", size: "local", modified: "asset", path: "A:\\Archive\\Assets\\awaken-logo.webp", src: "assets/img/awaken-logo.webp", tags: ["logo", "brand"] },
+  { name: "hated-tyla-sabrina.webp", type: "Image", size: "local", modified: "asset", path: "A:\\Archive\\2019\\HATED\\hated-tyla-sabrina.webp", src: "assets/img/hated-tyla-sabrina.webp", tags: ["hated", "photo"] },
+  { name: "otis-grade.png", type: "Image", size: "local", modified: "asset", path: "A:\\Archive\\2022\\CENTRAL_AFRICAN_TIME\\otis-grade.png", src: "assets/img/otis-grade.png", tags: ["josh otis", "photo"] },
+  { name: "secret-wallpaper.webp", type: "Image", size: "local", modified: "asset", path: "A:\\Wallpapers\\secret-wallpaper.webp", src: "assets/img/secret-wallpaper.webp", tags: ["wallpaper", "anticalvin"] },
+  { name: "README.txt", type: "Text", size: "3 KB", modified: "system", path: "A:\\README.txt", content: "AWAKEN NETWORK is the operating system AWAKEN members use.\nThe shell organizes real archive, music, community, VZN, NOISE, and social links.", tags: ["readme", "system"] }
+];
+
+let highestZ = 210;
+let currentPath = "A:\\";
+let windowCount = 0;
+let terminalPath = "A:\\";
+
+const bootloader = document.getElementById("bootloader");
+const osContainer = document.getElementById("os-container");
+const workArea = document.getElementById("work-area");
+const startMenu = document.getElementById("start-menu");
+const taskButtons = document.getElementById("task-buttons");
+
+function init() {
+  document.getElementById("boot-skip").addEventListener("click", finishBoot);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && bootloader.style.display !== "none") finishBoot();
+    if (event.key === "Escape") closeStartMenu();
+  });
+  runBoot();
 }
-function playBeep(long=false){if(!sound)return;try{const C=window.AudioContext||window.webkitAudioContext;const ctx=new C();const o=ctx.createOscillator();const g=ctx.createGain();o.type='square';o.frequency.value=long?220:880;g.gain.value=.035;o.connect(g);g.connect(ctx.destination);o.start();setTimeout(()=>{o.stop();ctx.close()},long?450:70)}catch(e){}}
+
+function runBoot() {
+  const skipBoot = localStorage.getItem("awakenBooted") === "true";
+  if (skipBoot) {
+    setTimeout(finishBoot, 500);
+    return;
+  }
+
+  const bootText = document.getElementById("boot-text");
+  let index = 0;
+  const tick = () => {
+    if (bootloader.style.display === "none") return;
+    if (index < BOOT_MESSAGES.length) {
+      bootText.textContent += `${BOOT_MESSAGES[index]}\n`;
+      index += 1;
+      setTimeout(tick, 360);
+    } else {
+      bootText.textContent += "\nClick Skip Boot or press Enter.";
+    }
+  };
+  tick();
+}
+
+function finishBoot() {
+  localStorage.setItem("awakenBooted", "true");
+  applySavedWallpaper();
+  bootloader.style.display = "none";
+  osContainer.style.display = "block";
+  updateClock();
+  setInterval(updateClock, 30000);
+  buildDesktop();
+  bindStartMenu();
+  openExplorer("A:\\Archive");
+}
+
+function updateClock() {
+  const now = new Date();
+  const label = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("top-clock").textContent = label;
+  document.getElementById("task-clock").textContent = label;
+}
+
+function buildDesktop() {
+  const desktop = document.getElementById("desktop-icons");
+  desktop.innerHTML = "";
+  ["archive", "music", "community", "terminal", "settings", "trash"].forEach((id) => {
+    const app = APPS.find((item) => item.id === id);
+    desktop.appendChild(iconButton(app));
+  });
+}
+
+function iconButton(app) {
+  const button = document.createElement("button");
+  button.className = "desktop-icon";
+  button.type = "button";
+  button.innerHTML = `<span class="desktop-glyph">${app.icon}</span><span>${app.title}</span>`;
+  button.addEventListener("click", app.action);
+  return button;
+}
+
+function bindStartMenu() {
+  document.getElementById("start-button").addEventListener("click", toggleStartMenu);
+  document.getElementById("start-search").addEventListener("input", (event) => renderStartList(event.target.value));
+  document.querySelector("[data-action='run']").addEventListener("click", () => {
+    closeStartMenu();
+    openTerminal("run");
+  });
+  document.querySelector("[data-action='reboot']").addEventListener("click", () => {
+    localStorage.removeItem("awakenBooted");
+    location.reload();
+  });
+  renderStartList("");
+}
+
+function toggleStartMenu() {
+  if (startMenu.hidden) {
+    renderStartList("");
+    startMenu.hidden = false;
+    document.getElementById("start-search").value = "";
+    document.getElementById("start-search").focus();
+  } else {
+    closeStartMenu();
+  }
+}
+
+function closeStartMenu() {
+  startMenu.hidden = true;
+}
+
+function renderStartList(term) {
+  const list = document.getElementById("start-list");
+  const filtered = term
+    ? searchAll(term).slice(0, 18)
+    : APPS.filter((app) => app.id !== "trash").map((app) => ({ title: app.title, kind: app.kind, icon: app.icon, action: app.action })).slice(0, 14);
+  list.innerHTML = "";
+  filtered.forEach((entry) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "start-row";
+    row.innerHTML = `<span>${entry.icon || "FL"}</span><span><strong>${entry.title}</strong><small>${entry.kind}</small></span><small>${entry.path || ""}</small>`;
+    row.addEventListener("click", () => {
+      closeStartMenu();
+      entry.action();
+    });
+    list.appendChild(row);
+  });
+}
+
+function createWindow(title, options = {}) {
+  const win = document.createElement("section");
+  win.className = "window";
+  win.dataset.id = `window-${++windowCount}`;
+  win.style.left = `${70 + (windowCount % 5) * 28}px`;
+  win.style.top = `${44 + (windowCount % 5) * 22}px`;
+  win.style.zIndex = ++highestZ;
+  if (options.wide) win.style.width = "min(860px, calc(100vw - 36px))";
+
+  const header = document.createElement("div");
+  header.className = "window-header";
+  header.innerHTML = `<div class="window-title">${title}</div>`;
+
+  const controls = document.createElement("div");
+  controls.className = "window-controls";
+  const min = document.createElement("button");
+  min.className = "minimize";
+  min.type = "button";
+  min.textContent = "_";
+  min.title = "Minimize";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.textContent = "x";
+  close.title = "Close";
+  controls.append(min, close);
+  header.appendChild(controls);
+
+  const content = document.createElement("div");
+  content.className = "window-content";
+  if (options.className) content.classList.add(options.className);
+
+  win.append(header, content);
+  workArea.appendChild(win);
+  makeActive(win);
+  makeDraggable(win, header);
+
+  const task = addTask(win, title);
+  close.addEventListener("click", (event) => {
+    event.stopPropagation();
+    task.remove();
+    win.remove();
+  });
+  min.addEventListener("click", (event) => {
+    event.stopPropagation();
+    win.hidden = true;
+    task.classList.remove("active");
+  });
+  win.addEventListener("pointerdown", () => makeActive(win));
+  return { win, content };
+}
+
+function makeActive(win) {
+  document.querySelectorAll(".window").forEach((node) => node.classList.remove("active"));
+  document.querySelectorAll(".task-item").forEach((node) => node.classList.remove("active"));
+  win.classList.add("active");
+  win.style.zIndex = ++highestZ;
+  const task = document.querySelector(`[data-window-task="${win.dataset.id}"]`);
+  if (task) task.classList.add("active");
+}
+
+function makeDraggable(win, handle) {
+  let startX = 0;
+  let startY = 0;
+  let left = 0;
+  let top = 0;
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button") || window.matchMedia("(max-width: 760px)").matches) return;
+    startX = event.clientX;
+    startY = event.clientY;
+    const rect = win.getBoundingClientRect();
+    left = rect.left;
+    top = rect.top;
+    handle.setPointerCapture(event.pointerId);
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop, { once: true });
+  });
+
+  function move(event) {
+    win.style.left = `${Math.max(0, left + event.clientX - startX)}px`;
+    win.style.top = `${Math.max(0, top + event.clientY - startY)}px`;
+  }
+
+  function stop() {
+    handle.removeEventListener("pointermove", move);
+  }
+}
+
+function addTask(win, title) {
+  const task = document.createElement("button");
+  task.type = "button";
+  task.className = "task-item active";
+  task.dataset.windowTask = win.dataset.id;
+  task.textContent = title;
+  task.addEventListener("click", () => {
+    win.hidden = !win.hidden && win.classList.contains("active");
+    if (!win.hidden) makeActive(win);
+  });
+  document.querySelectorAll(".task-item").forEach((node) => node.classList.remove("active"));
+  taskButtons.appendChild(task);
+  return task;
+}
+
+function openExplorer(path = "A:\\") {
+  currentPath = normalizePath(path);
+  document.getElementById("path-label").textContent = currentPath;
+  const { content } = createWindow(`Explorer - ${currentPath}`, { wide: true });
+  renderExplorer(content, currentPath);
+}
+
+function renderExplorer(content, path) {
+  const entries = getEntriesForPath(path);
+  content.innerHTML = "";
+  const bar = document.createElement("div");
+  bar.className = "explorer-bar";
+  bar.innerHTML = `
+    <button type="button" data-nav="back">Back</button>
+    <button type="button" data-nav="up">Up</button>
+    <input class="address" value="${path}" aria-label="Address" />
+    <button type="button" data-nav="go">Go</button>
+  `;
+  content.appendChild(bar);
+
+  const address = bar.querySelector(".address");
+  bar.querySelector("[data-nav='back']").addEventListener("click", () => openExplorer("A:\\"));
+  bar.querySelector("[data-nav='up']").addEventListener("click", () => openExplorer(parentPath(path)));
+  bar.querySelector("[data-nav='go']").addEventListener("click", () => openExplorer(address.value));
+  address.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") openExplorer(address.value);
+  });
+
+  const list = document.createElement("div");
+  list.className = "explorer-list";
+  list.innerHTML = `<div class="file-row header"><span></span><span>Name</span><span>Type</span><span>Size</span><span>Modified</span></div>`;
+  entries.forEach((entry) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "file-row";
+    row.innerHTML = `<span>${iconFor(entry.type)}</span><span>${entry.name}</span><span>${entry.type}</span><span>${entry.size || "--"}</span><span>${entry.modified || "--"}</span>`;
+    row.addEventListener("click", () => openEntry(entry));
+    list.appendChild(row);
+  });
+  content.appendChild(list);
+}
+
+function getEntriesForPath(path) {
+  const p = normalizePath(path).toLowerCase();
+  if (p === "a:\\" || p === "a:") {
+    return [
+      folder("Archive", "A:\\Archive"),
+      folder("Packages", "A:\\Packages"),
+      folder("Programs", "A:\\Programs"),
+      folder("Community", "A:\\Community"),
+      folder("Wallpapers", "A:\\Wallpapers"),
+      fileByName("README.txt")
+    ];
+  }
+  if (p.includes("archive\\2019")) return packageEntries(["xp", "hated"]);
+  if (p.includes("archive\\2021")) return packageEntries(["xpv2", "new-swag"]);
+  if (p.includes("archive\\2022")) return packageEntries(["central-african-time", "state-of-mind"]);
+  if (p.includes("archive\\2026")) return packageEntries(["noise"]);
+  if (p.endsWith("archive")) {
+    return [folder("2019", "A:\\Archive\\2019"), folder("2021", "A:\\Archive\\2021"), folder("2022", "A:\\Archive\\2022"), folder("2026", "A:\\Archive\\2026"), folder("Assets", "A:\\Archive\\Assets")];
+  }
+  if (p.endsWith("packages")) return packageEntries(PROJECTS.map((project) => project.id));
+  if (p.endsWith("programs")) return APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app }));
+  if (p.endsWith("community")) return [fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
+  if (p.endsWith("wallpapers")) {
+    return [
+      ...WALLPAPERS.map((wallpaper) => ({ name: `${wallpaper.title}.theme`, type: "Theme", size: wallpaper.color, modified: "system", wallpaper })),
+      ...FILES.filter((file) => file.tags.includes("wallpaper"))
+    ];
+  }
+  if (p.endsWith("assets")) return FILES.filter((file) => file.type === "Image");
+  return [fileByName("README.txt")];
+}
+
+function folder(name, path) {
+  return { name, type: "Folder", size: "--", modified: "system", path };
+}
+
+function packageEntries(ids) {
+  return ids.map((id) => {
+    const project = PROJECTS.find((item) => item.id === id);
+    return { name: `${project.title}.pkg`, type: "Package", size: project.size, modified: project.installed, project: id, path: project.path };
+  });
+}
+
+function fileByName(name) {
+  return FILES.find((file) => file.name === name);
+}
+
+function openEntry(entry) {
+  if (entry.type === "Folder") openExplorer(entry.path);
+  if (entry.type === "Package") openPackage(entry.project);
+  if (entry.type === "App") entry.app.action();
+  if (entry.type === "Link") openPortal(entry.name.replace(".url", ""), entry.url, entry.detail || "External AWAKEN NETWORK link.");
+  if (entry.type === "Image") openImage(entry);
+  if (entry.type === "Text") openText(entry.name, entry.content);
+  if (entry.type === "Theme") setWallpaper(entry.wallpaper.color);
+}
+
+function openPackage(id) {
+  const project = PROJECTS.find((item) => item.id === id);
+  if (!project) return;
+  document.getElementById("path-label").textContent = project.path;
+  const { content } = createWindow(`${project.title} Drive`, { wide: true });
+  content.innerHTML = `
+    <div class="cards">
+      <article class="card">
+        <img src="${project.cover}" alt="${project.title} artwork" />
+        <div class="card-body">
+          <strong>${project.title}</strong>
+          <p>${project.type} / ${project.year}</p>
+          <button type="button" data-open-link>Open Source</button>
+        </div>
+      </article>
+      <section>
+        <h2>${project.title}</h2>
+        <p>${project.readme}</p>
+        <div class="meta-grid">
+          <div class="meta"><strong>Installed</strong><br>${project.installed}</div>
+          <div class="meta"><strong>Size</strong><br>${project.size}</div>
+          <div class="meta"><strong>Status</strong><br>${project.status}</div>
+          <div class="meta"><strong>Path</strong><br>${project.path}</div>
+        </div>
+        <div class="health" aria-label="Drive health"><span style="width:${project.health}%"></span></div>
+        <h3>Contents</h3>
+        <div class="explorer-list">
+          ${["README.txt", "Artwork", "Music", "Photos", "Links"].map((item) => `<div class="file-row"><span>${iconFor(item)}</span><span>${item}</span><span>Folder</span><span>--</span><span>${project.year}</span></div>`).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+  content.querySelector("[data-open-link]").addEventListener("click", () => window.open(project.url, "_blank", "noopener"));
+}
+
+function openMusic() {
+  const { content } = createWindow("Music / Radio", { wide: true });
+  content.innerHTML = `
+    <div class="toolbar">
+      <button type="button" data-local>Play Local Signal</button>
+      <button type="button" data-artist>Apple Music Artist</button>
+      <button type="button" data-soundcloud>SoundCloud</button>
+    </div>
+    <div class="cards">
+      ${PROJECTS.filter((project) => project.tracks.length).map((project) => `
+        <article class="card">
+          <img src="${project.cover}" alt="${project.title} artwork" />
+          <div class="card-body">
+            <strong>${project.title}</strong>
+            <p>${project.type} / ${project.installed}</p>
+            <button type="button" data-project="${project.id}">Open</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+  content.querySelector("[data-local]").addEventListener("click", () => {
+    const audio = document.getElementById("audio-snippet");
+    audio.currentTime = 0;
+    audio.play();
+  });
+  content.querySelector("[data-artist]").addEventListener("click", () => window.open(LINKS.appleArtist, "_blank", "noopener"));
+  content.querySelector("[data-soundcloud]").addEventListener("click", () => window.open(LINKS.soundcloud, "_blank", "noopener"));
+  content.querySelectorAll("[data-project]").forEach((button) => {
+    button.addEventListener("click", () => openPackage(button.dataset.project));
+  });
+}
+
+function openCommunity() {
+  const { content } = createWindow("Community", { wide: true });
+  content.innerHTML = `
+    <div class="portal-row">
+      <div><strong>Community channel open.</strong><small>Discord is the primary live community link until API/widget access is added.</small></div>
+      <button type="button" data-discord>Open Discord</button>
+    </div>
+    ${SOCIALS.slice(4, 8).map((item) => portalMarkup(item)).join("")}
+  `;
+  content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener"));
+  bindPortalButtons(content);
+}
+
+function openLiveInternet() {
+  const { content } = createWindow("LIVE INTERNET", { wide: true });
+  content.innerHTML = SOCIALS.map((item) => portalMarkup(item)).join("");
+  bindPortalButtons(content);
+}
+
+function portalMarkup(item) {
+  return `<div class="portal-row"><div><strong>${item.title}</strong><small>${item.detail}</small></div><button type="button" data-url="${item.url}">Open</button></div>`;
+}
+
+function bindPortalButtons(container) {
+  container.querySelectorAll("[data-url]").forEach((button) => {
+    button.addEventListener("click", () => window.open(button.dataset.url, "_blank", "noopener"));
+  });
+}
+
+function openPortal(title, url, detail) {
+  const { content } = createWindow(title);
+  content.innerHTML = `
+    <div class="portal-row">
+      <div><strong>${title}</strong><small>${detail}</small></div>
+      <button type="button" data-url="${url}">Open</button>
+    </div>
+    <p>${url}</p>
+  `;
+  bindPortalButtons(content);
+}
+
+function openImage(file) {
+  const { content } = createWindow(file.name, { wide: true });
+  content.innerHTML = `<img class="viewer-image" src="${file.src}" alt="${file.name}" /><p>${file.path}</p>`;
+}
+
+function openText(title, text) {
+  const { content } = createWindow(title);
+  content.innerHTML = `<pre>${escapeHtml(text || "")}</pre>`;
+}
+
+function openSettings() {
+  const { content } = createWindow("Settings");
+  const current = getComputedStyle(document.documentElement).getPropertyValue("--wallpaper-color").trim();
+  content.innerHTML = `
+    <p><strong>System restored.</strong></p>
+    <p>Wallpaper color is controlled by <code>--wallpaper-color</code>. Current value: <code>${current}</code>.</p>
+    <div class="settings-row">
+      ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.color}">${wallpaper.title}</button>`).join("")}
+      <button type="button" data-reset>Show Boot Next Visit</button>
+    </div>
+  `;
+  content.querySelectorAll("[data-wallpaper]").forEach((button) => {
+    button.addEventListener("click", () => setWallpaper(button.dataset.wallpaper));
+  });
+  content.querySelector("[data-reset]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
+}
+
+function setWallpaper(color) {
+  document.documentElement.style.setProperty("--wallpaper-color", color);
+  localStorage.setItem("awakenWallpaper", color);
+}
+
+function applySavedWallpaper() {
+  const saved = localStorage.getItem("awakenWallpaper") || "#da4a44";
+  document.documentElement.style.setProperty("--wallpaper-color", saved);
+}
+
+function openTerminal(prefill = "") {
+  const { win, content } = createWindow("Terminal", { className: "terminal" });
+  content.innerHTML = `<div class="terminal-output"></div><div class="terminal-input"><span>${terminalPath}&gt;</span><input aria-label="Terminal command" value="${prefill}" /></div>`;
+  const output = content.querySelector(".terminal-output");
+  const input = content.querySelector("input");
+  print(output, ["AWAKEN NETWORK terminal", "Type help for commands."]);
+  input.focus();
+  win.addEventListener("click", () => input.focus());
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const command = input.value.trim();
+    input.value = "";
+    runCommand(command, output);
+    content.querySelector(".terminal-input span").textContent = `${terminalPath}>`;
+  });
+}
+
+function runCommand(command, output) {
+  print(output, [`${terminalPath}> ${command}`]);
+  const [cmd, ...rest] = command.split(" ");
+  const arg = rest.join(" ");
+  const lower = cmd.toLowerCase();
+  if (!command) return;
+  if (lower === "help") print(output, ["help, clear, dir, tree, cd <path>, open <name>, find <term>, type readme, scan, recover, whoami, version, discord"]);
+  else if (lower === "clear") output.innerHTML = "";
+  else if (lower === "dir") getEntriesForPath(terminalPath).forEach((entry) => print(output, [`${entry.type.padEnd(8)} ${entry.name}`]));
+  else if (lower === "tree") print(output, ["A:\\", "  Archive\\2019\\XP", "  Archive\\2019\\HATED", "  Archive\\2021\\XPV2", "  Archive\\2022\\STATE_OF_MIND", "  Programs\\VZN", "  Programs\\NOISE"]);
+  else if (lower === "cd") terminalPath = normalizePath(arg || "A:\\");
+  else if (lower === "open") terminalOpen(arg, output);
+  else if (lower === "find") searchAll(arg).slice(0, 12).forEach((item) => print(output, [`${item.kind}: ${item.title}`]));
+  else if (lower === "type" && arg.toLowerCase() === "readme") print(output, [fileByName("README.txt").content]);
+  else if (lower === "scan") print(output, ["3 live tools detected.", "7 catalog packages indexed.", "9 public network links verified."]);
+  else if (lower === "recover") print(output, ["Recovered archive.", "Package incomplete.", "Signal stable."]);
+  else if (lower === "whoami") print(output, ["visitor / public"]);
+  else if (lower === "version") print(output, ["AWAKEN OS v4.2 static frontend"]);
+  else if (lower === "discord") window.open(LINKS.discord, "_blank", "noopener");
+  else print(output, [`Unknown command: ${command}`]);
+  output.scrollTop = output.scrollHeight;
+}
+
+function terminalOpen(arg, output) {
+  const target = arg.toLowerCase();
+  const app = APPS.find((item) => item.title.toLowerCase() === target || item.id === target);
+  const project = PROJECTS.find((item) => item.title.toLowerCase() === target || item.id === target);
+  if (app) app.action();
+  else if (project) openPackage(project.id);
+  else if (target === "archive") openExplorer("A:\\Archive");
+  else print(output, [`Cannot open: ${arg}`]);
+}
+
+function print(output, lines) {
+  lines.forEach((line) => {
+    const div = document.createElement("div");
+    div.textContent = line;
+    output.appendChild(div);
+  });
+}
+
+function searchAll(term) {
+  const q = term.trim().toLowerCase();
+  if (!q) return [];
+  const results = [];
+  APPS.forEach((app) => {
+    if (`${app.title} ${app.kind} ${app.id}`.toLowerCase().includes(q)) results.push({ title: app.title, kind: "App", icon: app.icon, action: app.action });
+  });
+  PROJECTS.forEach((project) => {
+    if (`${project.title} ${project.type} ${project.year} ${project.tags.join(" ")} ${project.readme}`.toLowerCase().includes(q)) {
+      results.push({ title: project.title, kind: `${project.type} Package`, icon: "PK", path: project.path, action: () => openPackage(project.id) });
+    }
+  });
+  FILES.forEach((file) => {
+    if (`${file.name} ${file.type} ${file.path} ${file.tags.join(" ")}`.toLowerCase().includes(q)) {
+      results.push({ title: file.name, kind: file.type, icon: iconFor(file.type), path: file.path, action: () => openEntry(file) });
+    }
+  });
+  SOCIALS.forEach((item) => {
+    if (`${item.title} ${item.detail} ${item.url}`.toLowerCase().includes(q)) {
+      results.push({ title: item.title, kind: "Network Link", icon: "URL", action: () => openPortal(item.title, item.url, item.detail) });
+    }
+  });
+  return results;
+}
+
+function normalizePath(path) {
+  if (!path) return "A:\\";
+  let next = path.replace(/\//g, "\\").trim();
+  if (!next.toLowerCase().startsWith("a:")) next = `A:\\${next}`;
+  return next.replace(/\\+$/g, "") === "A:" ? "A:\\" : next.replace(/\\+$/g, "");
+}
+
+function parentPath(path) {
+  const normalized = normalizePath(path);
+  if (normalized === "A:\\") return normalized;
+  const parts = normalized.split("\\").filter(Boolean);
+  parts.pop();
+  return parts.length <= 1 ? "A:\\" : parts.join("\\");
+}
+
+function iconFor(type) {
+  const key = String(type).toLowerCase();
+  if (key.includes("folder")) return "DIR";
+  if (key.includes("package")) return "PKG";
+  if (key.includes("image")) return "IMG";
+  if (key.includes("link")) return "URL";
+  if (key.includes("app")) return "EXE";
+  if (key.includes("theme")) return "THM";
+  if (key.includes("text") || key.includes("readme")) return "TXT";
+  return "FILE";
+}
+
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+}
+
+window.addEventListener("DOMContentLoaded", init);

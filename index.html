@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AWAKEN NETWORK</title>
+  <meta name="description" content="AWAKEN NETWORK — AWAKEN CULT boot environment." />
+  <meta name="theme-color" content="#c40015" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="boot" class="boot" aria-label="AWAKEN NETWORK bootloader">
+    <div class="boot-card">
+      <div class="bios-row"><span>AWAKEN NETWORK BIOS</span><span>build 06.26</span></div>
+      <div class="boot-logo" aria-label="AWAKEN CULT">AWAKEN<span>CULT</span></div>
+      <pre id="bootLines"></pre>
+      <div class="boot-progress"><i id="bootProgress"></i></div>
+      <button id="bootButton" class="boot-button">PRESS ENTER / TAP TO BOOT</button>
+    </div>
+  </div>
+
+  <main id="app" class="app hidden">
+    <section class="phone-shell" aria-label="AWAKEN mobile desktop">
+      <header class="statusbar">
+        <button id="startBtn" class="start-chip" type="button"><span class="xp-orb"></span>AWAKEN</button>
+        <div class="status-center"><span id="signalText">SIGNAL: 64%</span><span class="scan-dot"></span></div>
+        <div class="status-actions"><button id="panicBtn" type="button">SCAN</button><button id="muteBtn" type="button">SND ON</button><time id="clock">00:00</time></div>
+      </header>
+
+      <div id="desktop" class="desktop" tabindex="0">
+        <div class="wallpaper-grid" aria-hidden="true"></div>
+        <section class="hero-terminal" aria-label="home status">
+          <div class="terminal-title">AWAKEN NETWORK ONLINE</div>
+          <div class="terminal-copy">Recovered system: XP / AIM / PS2 / TV / WEB<br />New collection + music signal pending.</div>
+        </section>
+        <nav id="icons" class="icons" aria-label="desktop apps"></nav>
+      </div>
+
+      <footer class="taskbar">
+        <button data-open="discord" class="task-cta">ENTER ROOM</button>
+        <div id="taskList" class="task-list"></div>
+      </footer>
+    </section>
+
+    <aside id="startMenu" class="start-menu hidden" aria-label="start menu">
+      <div class="start-user"><span class="avatar-eye">◉</span><div><b>v0id</b><small>status: Awake</small></div></div>
+      <button data-open="social">CULTFEED</button>
+      <button data-open="music">MUSIC.EXE</button>
+      <button data-open="collection">COLLECTION.EXE</button>
+      <button data-open="memory">MEMORY CARD</button>
+      <button data-open="tv">CHANNEL SURF</button>
+      <button data-open="discord">DISCORD.LNK</button>
+      <button id="shutdownBtn">SHUT DOWN?</button>
+    </aside>
+
+    <div id="windows" class="windows" aria-live="polite"></div>
+    <div id="popups" class="popups" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status"></div>
+  </main>
+
+  <div class="crt" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+  <audio id="beep" preload="auto"></audio>
+  <script src="script.js"></script>
+</body>
+</html>

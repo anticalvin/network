@@ -147,6 +147,7 @@ const APPS = [
   { id: "memory", title: "Memory Card", kind: "Program", icon: "MC", action: openMemoryCard },
   { id: "music", title: "Music", kind: "Program", icon: "MP", action: openMusic },
   { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
+  { id: "shop", title: "Shop", kind: "Program", icon: "$", action: openShop },
   { id: "live", title: "LIVE INTERNET", kind: "Program", icon: "IN", action: openLiveInternet },
   { id: "vzn", title: "VZN", kind: "Link", icon: "VZ", action: () => openPortal("VZN", LINKS.vzn, "Spatial social world by AWAKEN CULT.") },
   { id: "noise-app", title: "NOISE", kind: "Link", icon: "N0", action: () => openPortal("NOISE", LINKS.noise, "Artwork node graph and export tool.") },
@@ -624,6 +625,110 @@ function openCommunity() {
   `;
   content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener"));
   bindPortalButtons(content);
+}
+
+function openShop() {
+  const { win, content } = createWindow("AWAKEN Shop - In Development", { wide: true, className: "shop-window" });
+  content.innerHTML = `
+    <div class="shop-screen" aria-label="AWAKEN Shop in development">
+      <canvas class="pipes-canvas" aria-hidden="true"></canvas>
+      <div class="shop-status">
+        <img src="assets/img/awaken-logo.webp" alt="AWAKEN CULT" />
+        <p>SHOP.EXE</p>
+        <strong>IN DEVELOPMENT</strong>
+        <small>Catalog connection pending.</small>
+      </div>
+      <div class="shop-progress" aria-label="Development status"><span></span></div>
+    </div>
+  `;
+  runPipes(content.querySelector(".pipes-canvas"), win);
+}
+
+function runPipes(canvas, win) {
+  const context = canvas.getContext("2d");
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const palette = ["#da4a44", "#00a86b", "#245edb", "#f2c94c", "#d8d8d8"];
+  let width = 0;
+  let height = 0;
+  let frame = 0;
+  let segments = [];
+  let heads = [];
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const scale = Math.min(devicePixelRatio || 1, 2);
+    width = Math.max(1, rect.width);
+    height = Math.max(1, rect.height);
+    canvas.width = Math.floor(width * scale);
+    canvas.height = Math.floor(height * scale);
+    context.setTransform(scale, 0, 0, scale, 0, 0);
+    segments = [];
+    heads = Array.from({ length: width < 500 ? 3 : 6 }, (_, index) => ({
+      x: (index + 1) * width / 7,
+      y: (index % 3 + 1) * height / 4,
+      dx: index % 2 ? 1 : -1,
+      dy: index % 3 ? 0 : 1,
+      color: palette[index % palette.length]
+    }));
+  }
+
+  function draw() {
+    if (!win.isConnected) return;
+    context.fillStyle = "#050505";
+    context.fillRect(0, 0, width, height);
+    context.lineCap = "round";
+    segments.slice(-180).forEach((segment) => {
+      context.strokeStyle = segment.color;
+      context.lineWidth = 11;
+      context.beginPath();
+      context.moveTo(segment.x1, segment.y1);
+      context.lineTo(segment.x2, segment.y2);
+      context.stroke();
+      context.fillStyle = "rgba(255,255,255,.45)";
+      context.beginPath();
+      context.arc(segment.x2, segment.y2, 3, 0, Math.PI * 2);
+      context.fill();
+    });
+
+    if (!reducedMotion && frame % 8 === 0) {
+      heads.forEach((head) => advancePipe(head));
+    }
+    frame += 1;
+    if (!reducedMotion) requestAnimationFrame(draw);
+  }
+
+  function advancePipe(head) {
+    const step = Math.max(22, Math.min(width, height) / 11);
+    const x1 = head.x;
+    const y1 = head.y;
+    head.x += head.dx * step;
+    head.y += head.dy * step;
+    if (head.x < 16 || head.x > width - 16 || head.y < 16 || head.y > height - 16) {
+      head.x = Math.min(width - 16, Math.max(16, head.x));
+      head.y = Math.min(height - 16, Math.max(16, head.y));
+      turnPipe(head);
+    } else if (Math.random() < 0.28) {
+      turnPipe(head);
+    }
+    segments.push({ x1, y1, x2: head.x, y2: head.y, color: head.color });
+  }
+
+  function turnPipe(head) {
+    if (head.dx) {
+      head.dy = Math.random() < 0.5 ? -1 : 1;
+      head.dx = 0;
+    } else {
+      head.dx = Math.random() < 0.5 ? -1 : 1;
+      head.dy = 0;
+    }
+    if (Math.random() < 0.18) head.color = palette[Math.floor(Math.random() * palette.length)];
+  }
+
+  const observer = new ResizeObserver(resize);
+  observer.observe(canvas);
+  resize();
+  if (reducedMotion) heads.forEach((head) => { for (let i = 0; i < 8; i += 1) advancePipe(head); });
+  draw();
 }
 
 function openLiveInternet() {

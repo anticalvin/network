@@ -17,6 +17,7 @@ AWAKEN NETWORK is an OS-style shell for AWAKEN CULT's real ecosystem: archive pr
 - Configurable image icon manifest with safe text fallbacks.
 - Normalized local, remote, Supabase Storage, and ImgBB media sources.
 - Phone-friendly content editor at `/admin.html` for local editorial preview.
+- Shop app with a Windows 3D Pipes-inspired in-development screen.
 - Supabase migration with structured content, media, import provenance, revisions, and RLS.
 - Rerunnable tweet-export importer that produces an unpublished editorial review queue.
 - Automated tests for persistence, scheduling, expiry, frequency, and media safety.

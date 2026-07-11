@@ -1,0 +1,38 @@
+# Transmission Update Architecture
+
+## Baseline audit
+
+The repository was a dependency-free static application: `index.html`, `styles.css`, one 781-line `script.js`, and local media. It had a boot sequence, desktop, window manager, taskbar, Start menu, Explorer, packages, media viewers, terminal, links, wallpaper persistence, and mobile full-screen windows. Deployment required only static hosting. There was no router, build step, Supabase code, admin application, Memory Card, ImgBB-specific routing, automated test suite, or tweet export.
+
+Known baseline regressions were Start focusing its search input (opening a phone keyboard), the long first boot, fabricated status-like boot copy, no failed-image state, and small mobile window controls. Wallpaper and boot were the only persisted settings.
+
+## Current boundaries
+
+- `script.js`: existing public shell and window integrations.
+- `src/content/`: bundled safe content and replaceable icon manifest.
+- `src/domain/`: pure Memory Card, scheduling, and media rules.
+- `src/data/`: content repository with bundled, cached, local-admin, and optional remote paths.
+- `admin.html` and `admin/`: phone-friendly local editorial preview. Production authentication/write transport must be connected before deployment.
+- `supabase/migrations/`: relational public/admin content contract and RLS.
+- `tools/`: repeatable tweet export ingestion into a non-publishing review queue.
+- `tests/`: deterministic state, scheduling, and media tests.
+
+The public site never needs Supabase to boot. The repository returns the last safe local or cached edition when a remote request fails. A future Supabase adapter should implement the same repository boundary rather than adding data calls to window rendering functions.
+
+## Persistence
+
+`awaken.memory-card` is versioned independently from `awaken.content-admin-draft`. Memory Card migration currently fails closed to an empty version 1 card. Authenticated sync is an optional future adapter; anonymous use remains local and contains no sensitive profile data.
+
+## Missing inputs and assumptions
+
+- No companion voice/editorial prompt was supplied in this repository, so copy is factual and restrained; no lore was invented.
+- No tweet export was supplied, so the importer and review shape are implemented but no source content was transformed.
+- No existing Supabase project files or credentials were present. The migration is additive and un-applied.
+- No ImgBB records were found in the current content. The normalized provider and viewer path are ready for managed records.
+- Production admin authentication, preview tokens, storage buckets, deployment routing, analytics, and revision restoration require deployment/project configuration.
+
+## Hardcoded content moved
+
+Community link descriptions, interface empty/fallback copy, themes, transmission copy, and Memory Card fragments now live in `src/content/default-content.js`. Icon artwork and visibility live in `src/content/icon-manifest.js`.
+
+Catalog packages remain in `script.js` because they contain verified shell-specific presentation metadata and converting all package rendering in this phase would increase regression risk. Terminal command names, path labels, button labels, accessibility labels, and error/empty-state utility language remain code-owned because they are interface contracts rather than editorial posts.

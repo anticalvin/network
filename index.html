@@ -29,7 +29,7 @@
       <div id="desktop-icons" class="desktop-icons"></div>
     </section>
 
-    <nav id="start-menu" class="start-menu" aria-label="Start menu" hidden>
+    <nav id="start-menu" class="start-menu" aria-label="Start menu" tabindex="-1" hidden>
       <div class="start-head">
         <img src="assets/img/smiley-black.png" alt="" />
         <div>
@@ -56,9 +56,11 @@
         <time id="task-clock"></time>
       </div>
     </footer>
+    <div id="transmission-layer" class="transmission-layer" aria-live="polite"></div>
   </main>
 
   <audio id="audio-snippet" src="assets/audio/snippet.wav" preload="auto"></audio>
-  <script src="script.js"></script>
+  <script src="config.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>

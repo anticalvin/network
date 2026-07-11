@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>AWAKEN Content Admin</title>
+  <link rel="stylesheet" href="admin/admin.css" />
+</head>
+<body>
+  <header class="admin-header">
+    <div><strong>AWAKEN Content Admin</strong><small>Local editorial preview</small></div>
+    <a href="./index.html">View desktop</a>
+  </header>
+  <main class="admin-shell">
+    <nav class="admin-tabs" aria-label="Content sections">
+      <button type="button" data-section="transmissions" aria-pressed="true">Transmissions</button>
+      <button type="button" data-section="links">Links</button>
+      <button type="button" data-section="themes">Themes</button>
+      <button type="button" data-section="fragments">Fragments</button>
+    </nav>
+    <section class="admin-list-panel">
+      <div class="panel-head"><h1 id="section-title">Transmissions</h1><button id="new-entry" type="button">New</button></div>
+      <div id="entry-list"></div>
+    </section>
+    <section class="admin-editor" aria-label="Content editor">
+      <form id="editor-form">
+        <div class="editor-empty">Select an entry or create a new one.</div>
+      </form>
+    </section>
+  </main>
+  <div id="admin-status" class="admin-status" role="status" hidden></div>
+  <script src="config.js"></script>
+  <script type="module" src="admin/admin.js"></script>
+</body>
+</html>

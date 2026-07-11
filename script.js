@@ -1,12 +1,18 @@
+import { defaultContent } from "./src/content/default-content.js";
+import { iconManifest } from "./src/content/icon-manifest.js";
+import { addMemoryItem, emptyMemoryCard, loadMemoryCard, removeMemoryItem, saveMemoryCard, setDismissal } from "./src/domain/memory-card.js";
+import { normalizeMedia } from "./src/domain/media.js";
+import { selectTransmissions } from "./src/domain/scheduling.js";
+import { ContentRepository } from "./src/data/content-repository.js";
+
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
   "A:\\",
   "Loading user profile...",
   "Restoring previous session...",
-  "3 unread transmissions",
-  "2 recovered archives",
-  "1 corrupted drive",
-  "Welcome back."
+  "Loading archive index...",
+  "Loading preferences...",
+  "Ready."
 ];
 
 const LINKS = {
@@ -138,6 +144,7 @@ const PROJECTS = [
 
 const APPS = [
   { id: "archive", title: "Archive", kind: "Folder", icon: "A:", action: () => openExplorer("A:\\Archive") },
+  { id: "memory", title: "Memory Card", kind: "Program", icon: "MC", action: openMemoryCard },
   { id: "music", title: "Music", kind: "Program", icon: "MP", action: openMusic },
   { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
   { id: "live", title: "LIVE INTERNET", kind: "Program", icon: "IN", action: openLiveInternet },
@@ -194,6 +201,11 @@ let highestZ = 210;
 let currentPath = "A:\\";
 let windowCount = 0;
 let terminalPath = "A:\\";
+let managedContent = defaultContent;
+let memoryCard = emptyMemoryCard();
+const repository = new ContentRepository();
+const sessionDisplays = {};
+let bootFinished = false;
 
 const bootloader = document.getElementById("bootloader");
 const osContainer = document.getElementById("os-container");
@@ -201,7 +213,10 @@ const workArea = document.getElementById("work-area");
 const startMenu = document.getElementById("start-menu");
 const taskButtons = document.getElementById("task-buttons");
 
-function init() {
+async function init() {
+  memoryCard = loadMemoryCard();
+  const loaded = await repository.getPublicContent();
+  managedContent = loaded.content;
   document.getElementById("boot-skip").addEventListener("click", finishBoot);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && bootloader.style.display !== "none") finishBoot();
@@ -212,8 +227,10 @@ function init() {
 
 function runBoot() {
   const skipBoot = localStorage.getItem("awakenBooted") === "true";
-  if (skipBoot) {
-    setTimeout(finishBoot, 500);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const debugSkip = new URLSearchParams(location.search).has("skipBoot");
+  if (skipBoot || reducedMotion || debugSkip) {
+    setTimeout(finishBoot, reducedMotion || debugSkip ? 0 : 900);
     return;
   }
 
@@ -224,7 +241,7 @@ function runBoot() {
     if (index < BOOT_MESSAGES.length) {
       bootText.textContent += `${BOOT_MESSAGES[index]}\n`;
       index += 1;
-      setTimeout(tick, 360);
+      setTimeout(tick, 240);
     } else {
       bootText.textContent += "\nClick Skip Boot or press Enter.";
     }
@@ -233,6 +250,8 @@ function runBoot() {
 }
 
 function finishBoot() {
+  if (bootFinished) return;
+  bootFinished = true;
   localStorage.setItem("awakenBooted", "true");
   applySavedWallpaper();
   bootloader.style.display = "none";
@@ -242,6 +261,7 @@ function finishBoot() {
   buildDesktop();
   bindStartMenu();
   openExplorer("A:\\Archive");
+  scheduleTransmissions();
 }
 
 function updateClock() {
@@ -254,17 +274,21 @@ function updateClock() {
 function buildDesktop() {
   const desktop = document.getElementById("desktop-icons");
   desktop.innerHTML = "";
-  ["archive", "music", "community", "terminal", "settings", "trash"].forEach((id) => {
+  iconManifest.filter((icon) => icon.enabled && icon.desktop).sort((a, b) => a.sortOrder - b.sortOrder).forEach((manifest) => {
+    const id = manifest.applicationId;
     const app = APPS.find((item) => item.id === id);
-    desktop.appendChild(iconButton(app));
+    if (app) desktop.appendChild(iconButton(app, manifest));
   });
 }
 
-function iconButton(app) {
+function iconButton(app, manifest = {}) {
   const button = document.createElement("button");
   button.className = "desktop-icon";
   button.type = "button";
-  button.innerHTML = `<span class="desktop-glyph">${app.icon}</span><span>${app.title}</span>`;
+  const image = manifest.imageSource ? `<img src="${manifest.imageSource}" alt="${manifest.alt || ""}" loading="lazy" />` : "";
+  button.innerHTML = `<span class="desktop-glyph">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
+  const img = button.querySelector("img");
+  if (img) img.addEventListener("error", () => img.remove());
   button.addEventListener("click", app.action);
   return button;
 }
@@ -288,7 +312,7 @@ function toggleStartMenu() {
     renderStartList("");
     startMenu.hidden = false;
     document.getElementById("start-search").value = "";
-    document.getElementById("start-search").focus();
+    document.getElementById("start-button").setAttribute("aria-expanded", "true");
   } else {
     closeStartMenu();
   }
@@ -296,6 +320,7 @@ function toggleStartMenu() {
 
 function closeStartMenu() {
   startMenu.hidden = true;
+  document.getElementById("start-button").setAttribute("aria-expanded", "false");
 }
 
 function renderStartList(term) {
@@ -531,6 +556,7 @@ function openPackage(id) {
           <strong>${project.title}</strong>
           <p>${project.type} / ${project.year}</p>
           <button type="button" data-open-link>Open Source</button>
+          <button type="button" data-save>Save</button>
         </div>
       </article>
       <section>
@@ -551,6 +577,7 @@ function openPackage(id) {
     </div>
   `;
   content.querySelector("[data-open-link]").addEventListener("click", () => window.open(project.url, "_blank", "noopener"));
+  content.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: project.id, type: "archive", title: project.title, path: project.path, url: project.url }));
 }
 
 function openMusic() {
@@ -621,15 +648,88 @@ function openPortal(title, url, detail) {
     <div class="portal-row">
       <div><strong>${title}</strong><small>${detail}</small></div>
       <button type="button" data-url="${url}">Open</button>
+      <button type="button" data-save-link>Save</button>
     </div>
     <p>${url}</p>
   `;
   bindPortalButtons(content);
+  content.querySelector("[data-save-link]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: url, type: "link", title, url }));
 }
 
 function openImage(file) {
   const { content } = createWindow(file.name, { wide: true });
-  content.innerHTML = `<img class="viewer-image" src="${file.src}" alt="${file.name}" /><p>${file.path}</p>`;
+  const media = normalizeMedia({ id: file.path, src: file.src || file.url, sourceUrl: file.sourceUrl, caption: file.caption, credit: file.credit });
+  content.innerHTML = media.missing
+    ? `<div class="empty-state">Image unavailable.</div>`
+    : `<img class="viewer-image" src="${media.fullSource}" alt="${file.name}" loading="lazy" /><p>${file.path || media.sourceUrl || ""}</p><button type="button" data-save-image>Save image</button>`;
+  const image = content.querySelector("img");
+  if (image) image.addEventListener("error", () => image.replaceWith(Object.assign(document.createElement("div"), { className: "empty-state", textContent: "Image unavailable." })));
+  content.querySelector("[data-save-image]")?.addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: media.id, type: "image", title: file.name, src: media.fullSource }));
+}
+
+function saveExplicit(button, item) {
+  memoryCard = saveMemoryCard(addMemoryItem(memoryCard, item));
+  button.textContent = "Saved";
+  button.disabled = true;
+}
+
+function openMemoryCard() {
+  const { content } = createWindow("Memory Card", { wide: true });
+  renderMemoryCard(content);
+}
+
+function renderMemoryCard(content) {
+  content.innerHTML = `<div class="toolbar"><strong>${memoryCard.items.length} saved</strong><button type="button" data-reset-memory>Reset card</button></div><div data-memory-items></div>`;
+  const list = content.querySelector("[data-memory-items]");
+  if (!memoryCard.items.length) {
+    list.innerHTML = `<div class="empty-state">${escapeHtml(managedContent.interface?.memoryCardEmpty || defaultContent.interface.memoryCardEmpty)}</div>`;
+  } else {
+    memoryCard.items.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "memory-row";
+      row.innerHTML = `<div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.type)} / saved ${new Date(item.savedAt).toLocaleDateString()}</small></div><button type="button">Remove</button>`;
+      row.querySelector("button").addEventListener("click", () => {
+        memoryCard = saveMemoryCard(removeMemoryItem(memoryCard, item.type, item.id));
+        renderMemoryCard(content);
+      });
+      list.appendChild(row);
+    });
+  }
+  content.querySelector("[data-reset-memory]").addEventListener("click", () => {
+    if (!confirm("Remove every saved Memory Card item and preference?")) return;
+    memoryCard = saveMemoryCard(emptyMemoryCard());
+    renderMemoryCard(content);
+  });
+}
+
+function scheduleTransmissions() {
+  const preview = new URLSearchParams(location.search).has("previewTransmissions");
+  const selected = selectTransmissions(managedContent.transmissions || [], {
+    now: new Date(),
+    timezone: managedContent.timezone || "Africa/Johannesburg",
+    mobile: matchMedia("(max-width: 760px)").matches,
+    route: "desktop",
+    dismissals: preview ? {} : memoryCard.dismissals,
+    displayCounts: preview ? {} : sessionDisplays
+  }, 1);
+  selected.forEach((item) => setTimeout(() => showTransmission(item), Math.max(0, Number(item.delayMs) || 0)));
+}
+
+function showTransmission(item) {
+  if (sessionDisplays[item.id]) return;
+  sessionDisplays[item.id] = 1;
+  const layer = document.getElementById("transmission-layer");
+  const panel = document.createElement("aside");
+  panel.className = "transmission";
+  panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Dismiss">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open external link</button><button type="button" data-save>Save</button></div>`;
+  const dismiss = () => {
+    memoryCard = saveMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }));
+    panel.remove();
+  };
+  panel.querySelector("[aria-label='Dismiss']").addEventListener("click", dismiss);
+  panel.querySelector("[data-open]").addEventListener("click", () => window.open(item.destinationUrl, "_blank", "noopener"));
+  panel.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: item.id, type: "transmission", title: item.publicTitle, url: item.destinationUrl }));
+  layer.appendChild(panel);
 }
 
 function openText(title, text) {

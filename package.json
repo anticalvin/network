@@ -1,0 +1,10 @@
+{
+  "name": "awaken-network-os",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "python3 -m http.server 5179 --bind 127.0.0.1",
+    "import:tweets": "node tools/import-tweets.mjs"
+  }
+}

@@ -15,9 +15,12 @@ Known baseline regressions were Start focusing its search input (opening a phone
 - `admin.html` and `admin/`: phone-friendly local editorial preview. Production authentication/write transport must be connected before deployment.
 - `supabase/migrations/`: relational public/admin content contract and RLS.
 - `tools/`: repeatable tweet export ingestion into a non-publishing review queue.
+- `discord/`: separate server-side MIND bot process, restricted to the configured XP channel.
 - `tests/`: deterministic state, scheduling, and media tests.
 
 The public site never needs Supabase to boot. The repository returns the last safe local or cached edition when a remote request fails. A future Supabase adapter should implement the same repository boundary rather than adding data calls to window rendering functions.
+
+The public site also never receives the Discord bot token. MIND connects through a separate Node.js process and accepts only server-side environment variables. Any future Discord-to-Supabase ingestion must remain opt-in, channel-specific, moderated, and must not expose Discord user IDs or message bodies through public tables.
 
 ## Persistence
 

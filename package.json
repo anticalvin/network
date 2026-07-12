@@ -5,6 +5,13 @@
   "scripts": {
     "test": "node --test",
     "serve": "python3 -m http.server 5179 --bind 127.0.0.1",
+    "discord:mind": "node discord/mind-bot.js",
     "import:tweets": "node tools/import-tweets.mjs"
+  },
+  "dependencies": {
+    "discord.js": "14.26.5"
+  },
+  "overrides": {
+    "undici": "6.27.0"
   }
 }

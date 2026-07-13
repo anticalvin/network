@@ -87,7 +87,11 @@ button {
   display: none;
   width: 100vw;
   height: 100vh;
-  background: var(--wallpaper-color);
+  background-color: var(--wallpaper-color);
+  background-image: var(--wallpaper-image, none);
+  background-size: var(--wallpaper-size, cover);
+  background-repeat: var(--wallpaper-repeat, no-repeat);
+  background-position: center;
 }
 
 .topbar {
@@ -746,6 +750,144 @@ button {
   gap: 7px;
 }
 
+.mind-app,
+.media-player {
+  min-height: 390px;
+  color: #101010;
+  background: #d9dfeb;
+  border: 1px solid #808899;
+}
+
+.mind-toolbar,
+.media-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 7px;
+  border-bottom: 1px solid #9299a8;
+  background: linear-gradient(#f7f8fc, #c7d0e3);
+}
+
+.mind-toolbar strong {
+  margin-right: auto;
+}
+
+.mind-toolbar span {
+  padding: 2px 6px;
+  font: 11px "Courier New", monospace;
+  color: #0e3f18;
+  background: #dff7da;
+  border: 1px inset #fff;
+}
+
+.mind-log {
+  height: 340px;
+  overflow: auto;
+  background: #f7f7ef;
+}
+
+.mind-message {
+  padding: 7px 9px;
+  border-bottom: 1px solid #c7c7bd;
+}
+
+.mind-message div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.mind-message time {
+  color: #5c5c5c;
+}
+
+.mind-message p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.mind-message.system {
+  color: #fff;
+  background: #1d1d1d;
+}
+
+.media-player {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  background: #101010;
+}
+
+.media-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px;
+  color: #fff;
+  background: linear-gradient(#4b4b4b, #171717);
+  border-right: 1px solid #000;
+}
+
+.media-nav strong {
+  margin-bottom: 8px;
+}
+
+.media-now {
+  min-width: 0;
+}
+
+.media-visualizer {
+  display: block;
+  width: 100%;
+  height: 220px;
+  background: #050505;
+  border-bottom: 1px solid #000;
+}
+
+.media-controls {
+  color: #111;
+}
+
+.media-controls span {
+  min-width: 0;
+  font: 12px "Courier New", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1px;
+  background: #000;
+}
+
+.media-list button {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+  padding: 6px;
+  text-align: left;
+  color: #fff;
+  background: #2b2b2b;
+  border: 0;
+}
+
+.media-list img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+}
+
+.media-list small {
+  display: block;
+  color: #bdbdbd;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
@@ -818,5 +960,18 @@ button {
     right: 8px;
     bottom: calc(var(--taskbar-h) + env(safe-area-inset-bottom) + 8px);
     width: calc(100vw - 16px);
+  }
+
+  .media-player {
+    grid-template-columns: 1fr;
+  }
+
+  .media-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .media-nav strong {
+    grid-column: 1 / -1;
   }
 }

@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="AWAKEN NETWORK OS - the connected archive shell for AWAKEN CULT." />
   <title>AWAKEN NETWORK OS</title>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const bypass = params.has("skipBoot") || sessionStorage.getItem("awaken.session") === "guest";
+      if (!bypass && sessionStorage.getItem("awaken.entrySequenceComplete") !== "true") {
+        location.replace("./awaken-system/bios.html");
+      }
+    })();
+  </script>
   <link rel="icon" href="assets/img/smiley-black.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>

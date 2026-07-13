@@ -11,16 +11,16 @@ Known baseline regressions were Start focusing its search input (opening a phone
 - `script.js`: existing public shell and window integrations.
 - `src/content/`: bundled safe content and replaceable icon manifest.
 - `src/domain/`: pure Memory Card, scheduling, and media rules.
-- `src/data/`: content repository with bundled, cached, local-admin, and optional remote paths.
+- `src/data/`: content/community/filesystem/media repositories with bundled, cached, local-admin, optional remote, and Supabase paths.
 - `admin.html` and `admin/`: phone-friendly local editorial preview. Production authentication/write transport must be connected before deployment.
-- `supabase/migrations/`: relational public/admin content contract and RLS.
+- `supabase/migrations/`: relational public/admin content contract, live filesystem, campaigns, media assets, MIND bridge tables, storage setup, Realtime setup, and RLS.
 - `tools/`: repeatable tweet export ingestion into a non-publishing review queue.
 - `discord/`: separate server-side MIND bot process, restricted to the configured XP channel.
 - `tests/`: deterministic state, scheduling, and media tests.
 
 The public site never needs Supabase to boot. The repository returns the last safe local or cached edition when a remote request fails. A future Supabase adapter should implement the same repository boundary rather than adding data calls to window rendering functions.
 
-The public site also never receives the Discord bot token. MIND connects through a separate Node.js process and accepts only server-side environment variables. Any future Discord-to-Supabase ingestion must remain opt-in, channel-specific, moderated, and must not expose Discord user IDs or message bodies through public tables.
+The public site also never receives the Discord bot token or Supabase server key. MIND connects through a separate Node.js process and accepts only server-side environment variables. Discord-to-Supabase ingestion is opt-in, channel-specific, moderated, and stores only the minimum Discord fields needed for deduplication and display.
 
 ## Persistence
 
@@ -30,9 +30,9 @@ The public site also never receives the Discord bot token. MIND connects through
 
 - No companion voice/editorial prompt was supplied in this repository, so copy is factual and restrained; no lore was invented.
 - No tweet export was supplied, so the importer and review shape are implemented but no source content was transformed.
-- No existing Supabase project files or credentials were present. The migration is additive and un-applied.
+- Supabase project `gnfxhelagmcferkqpngr` is configured. The live-system migration was applied on 2026-07-13, while the original live baseline remains unregistered in Supabase migration history.
 - No ImgBB records were found in the current content. The normalized provider and viewer path are ready for managed records.
-- Production admin authentication, preview tokens, storage buckets, deployment routing, analytics, and revision restoration require deployment/project configuration.
+- Production admin authentication, preview tokens, deployment routing, analytics, revision restoration, and the hosted MIND process require deployment/project configuration.
 
 ## Hardcoded content moved
 

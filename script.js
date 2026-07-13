@@ -4,6 +4,13 @@ import { addMemoryItem, emptyMemoryCard, loadMemoryCard, removeMemoryItem, saveM
 import { normalizeMedia } from "./src/domain/media.js";
 import { selectTransmissions } from "./src/domain/scheduling.js";
 import { ContentRepository } from "./src/data/content-repository.js";
+import { brandAssets } from "./src/content/brand-assets.js";
+import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
+import { createSupabaseRestClient } from "./src/data/supabase-client.js";
+import { CommunityRepository } from "./src/data/community-repository.js";
+import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
+import { renderMindApp } from "./src/apps/mind/mind-app.js";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -145,7 +152,8 @@ const PROJECTS = [
 const APPS = [
   { id: "archive", title: "Archive", kind: "Folder", icon: "A:", action: () => openExplorer("A:\\Archive") },
   { id: "memory", title: "Memory Card", kind: "Program", icon: "MC", action: openMemoryCard },
-  { id: "music", title: "Music", kind: "Program", icon: "MP", action: openMusic },
+  { id: "music", title: "Media Player", kind: "Program", icon: "MP", action: openMusic },
+  { id: "mind", title: "MIND", kind: "Program", icon: "AI", action: openMind },
   { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
   { id: "shop", title: "Shop", kind: "Program", icon: "$", action: openShop },
   { id: "live", title: "LIVE INTERNET", kind: "Program", icon: "IN", action: openLiveInternet },
@@ -170,7 +178,8 @@ const SOCIALS = [
 ];
 
 const WALLPAPERS = [
-  { id: "awaken-red", title: "AWAKEN Red", color: "#da4a44", detail: "standard solid system wallpaper" },
+  { id: "awaken-default", title: "AWAKEN Default", color: "#da4a44", image: brandAssets.wallpaperDefault, mode: "cover", detail: "standard AWAKEN system wallpaper" },
+  { id: "awaken-red", title: "AWAKEN Red", color: "#da4a44", detail: "offline solid system wallpaper" },
   { id: "xp-teal", title: "XP Teal", color: "#008080", detail: "classic desktop teal" },
   { id: "xp-blue", title: "XP Blue", color: "#245edb", detail: "classic system blue" },
   { id: "xp-olive", title: "XP Olive", color: "#6f7f2a", detail: "classic olive option" },
@@ -189,6 +198,7 @@ const FILES = [
     tags: project.tags
   })),
   { name: "discord.url", type: "Link", size: "invite", modified: "live", path: "A:\\Community\\discord.url", url: LINKS.discord, tags: ["discord", "community"] },
+  { name: "MIND.exe", type: "App", size: "program", modified: "live", path: "A:\\Community\\XP\\MIND.exe", app: { action: openMind }, tags: ["discord", "mind", "xp", "community"] },
   { name: "vzn.lnk", type: "Link", size: "app", modified: "live", path: "A:\\Programs\\vzn.lnk", url: LINKS.vzn, tags: ["vzn", "social canvas"] },
   { name: "noise.lnk", type: "Link", size: "app", modified: "live", path: "A:\\Programs\\noise.lnk", url: LINKS.noise, tags: ["noise", "art"] },
   { name: "awaken-logo.webp", type: "Image", size: "local", modified: "asset", path: "A:\\Archive\\Assets\\awaken-logo.webp", src: "assets/img/awaken-logo.webp", tags: ["logo", "brand"] },
@@ -205,6 +215,8 @@ let terminalPath = "A:\\";
 let managedContent = defaultContent;
 let memoryCard = emptyMemoryCard();
 const repository = new ContentRepository();
+const supabaseClient = createSupabaseRestClient();
+const communityRepository = new CommunityRepository({ adapter: new SupabaseCommunityAdapter(supabaseClient) });
 const sessionDisplays = {};
 let bootFinished = false;
 
@@ -228,9 +240,10 @@ async function init() {
 
 function runBoot() {
   const skipBoot = localStorage.getItem("awakenBooted") === "true";
+  const entryComplete = sessionStorage.getItem("awaken.entrySequenceComplete") === "true";
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const debugSkip = new URLSearchParams(location.search).has("skipBoot");
-  if (skipBoot || reducedMotion || debugSkip) {
+  if (skipBoot || entryComplete || reducedMotion || debugSkip) {
     setTimeout(finishBoot, reducedMotion || debugSkip ? 0 : 900);
     return;
   }
@@ -382,6 +395,7 @@ function createWindow(title, options = {}) {
   const task = addTask(win, title);
   close.addEventListener("click", (event) => {
     event.stopPropagation();
+    win.dispatchEvent(new CustomEvent("awaken:window-close"));
     task.remove();
     win.remove();
   });
@@ -495,6 +509,7 @@ function getEntriesForPath(path) {
       folder("Packages", "A:\\Packages"),
       folder("Programs", "A:\\Programs"),
       folder("Community", "A:\\Community"),
+      folder("Team", "A:\\Team"),
       folder("Wallpapers", "A:\\Wallpapers"),
       fileByName("README.txt")
     ];
@@ -508,10 +523,12 @@ function getEntriesForPath(path) {
   }
   if (p.endsWith("packages")) return packageEntries(PROJECTS.map((project) => project.id));
   if (p.endsWith("programs")) return APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app }));
-  if (p.endsWith("community")) return [fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
+  if (p.endsWith("community")) return [folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
+  if (p.endsWith("community\\xp")) return [fileByName("MIND.exe"), { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }];
+  if (p.endsWith("team")) return [{ name: "TEAM_ACCESS_REQUIRED.txt", type: "Text", size: "protected", modified: "system", content: "A:\\Team exists in the live filesystem. Access is controlled by Supabase RLS and trusted admin/team claims.", tags: ["team", "protected"] }];
   if (p.endsWith("wallpapers")) {
     return [
-      ...WALLPAPERS.map((wallpaper) => ({ name: `${wallpaper.title}.theme`, type: "Theme", size: wallpaper.color, modified: "system", wallpaper })),
+      ...WALLPAPERS.map((wallpaper) => ({ name: `${wallpaper.title}.theme`, type: "Theme", size: wallpaper.image ? "image" : wallpaper.color, modified: "system", wallpaper })),
       ...FILES.filter((file) => file.tags.includes("wallpaper"))
     ];
   }
@@ -541,7 +558,7 @@ function openEntry(entry) {
   if (entry.type === "Link") openPortal(entry.name.replace(".url", ""), entry.url, entry.detail || "External AWAKEN NETWORK link.");
   if (entry.type === "Image") openImage(entry);
   if (entry.type === "Text") openText(entry.name, entry.content);
-  if (entry.type === "Theme") setWallpaper(entry.wallpaper.color);
+  if (entry.type === "Theme") setWallpaper(entry.wallpaper);
 }
 
 function openPackage(id) {
@@ -582,36 +599,15 @@ function openPackage(id) {
 }
 
 function openMusic() {
-  const { content } = createWindow("Music / Radio", { wide: true });
-  content.innerHTML = `
-    <div class="toolbar">
-      <button type="button" data-local>Play Local Signal</button>
-      <button type="button" data-artist>Apple Music Artist</button>
-      <button type="button" data-soundcloud>SoundCloud</button>
-    </div>
-    <div class="cards">
-      ${PROJECTS.filter((project) => project.tracks.length).map((project) => `
-        <article class="card">
-          <img src="${project.cover}" alt="${project.title} artwork" />
-          <div class="card-body">
-            <strong>${project.title}</strong>
-            <p>${project.type} / ${project.installed}</p>
-            <button type="button" data-project="${project.id}">Open</button>
-          </div>
-        </article>
-      `).join("")}
-    </div>
-  `;
-  content.querySelector("[data-local]").addEventListener("click", () => {
-    const audio = document.getElementById("audio-snippet");
-    audio.currentTime = 0;
-    audio.play();
-  });
-  content.querySelector("[data-artist]").addEventListener("click", () => window.open(LINKS.appleArtist, "_blank", "noopener"));
-  content.querySelector("[data-soundcloud]").addEventListener("click", () => window.open(LINKS.soundcloud, "_blank", "noopener"));
-  content.querySelectorAll("[data-project]").forEach((button) => {
-    button.addEventListener("click", () => openPackage(button.dataset.project));
-  });
+  const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window" });
+  const cleanup = renderMediaPlayer(content, { projects: PROJECTS, links: LINKS, audio: document.getElementById("audio-snippet") });
+  win.addEventListener("awaken:window-close", cleanup, { once: true });
+}
+
+function openMind() {
+  const { win, content } = createWindow("MIND - XP CHANNEL", { wide: true, className: "mind-window" });
+  const cleanup = renderMindApp(content, { repository: communityRepository, inviteUrl: LINKS.discord });
+  win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
 function openCommunity() {
@@ -619,10 +615,12 @@ function openCommunity() {
   content.innerHTML = `
     <div class="portal-row">
       <div><strong>Community channel open.</strong><small>Discord is the primary live community link until API/widget access is added.</small></div>
+      <button type="button" data-mind>Open MIND</button>
       <button type="button" data-discord>Open Discord</button>
     </div>
     ${SOCIALS.slice(4, 8).map((item) => portalMarkup(item)).join("")}
   `;
+  content.querySelector("[data-mind]").addEventListener("click", openMind);
   content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener"));
   bindPortalButtons(content);
 }
@@ -823,16 +821,21 @@ function scheduleTransmissions() {
 function showTransmission(item) {
   if (sessionDisplays[item.id]) return;
   sessionDisplays[item.id] = 1;
+  awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_SHOWN, { id: item.id, destinationUrl: item.destinationUrl });
   const layer = document.getElementById("transmission-layer");
   const panel = document.createElement("aside");
   panel.className = "transmission";
   panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Dismiss">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open external link</button><button type="button" data-save>Save</button></div>`;
   const dismiss = () => {
     memoryCard = saveMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }));
+    awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_DISMISSED, { id: item.id });
     panel.remove();
   };
   panel.querySelector("[aria-label='Dismiss']").addEventListener("click", dismiss);
-  panel.querySelector("[data-open]").addEventListener("click", () => window.open(item.destinationUrl, "_blank", "noopener"));
+  panel.querySelector("[data-open]").addEventListener("click", () => {
+    awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_ACTION, { id: item.id, action: "open", destinationUrl: item.destinationUrl });
+    window.open(item.destinationUrl, "_blank", "noopener");
+  });
   panel.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: item.id, type: "transmission", title: item.publicTitle, url: item.destinationUrl }));
   layer.appendChild(panel);
 }
@@ -849,24 +852,38 @@ function openSettings() {
     <p><strong>System restored.</strong></p>
     <p>Wallpaper color is controlled by <code>--wallpaper-color</code>. Current value: <code>${current}</code>.</p>
     <div class="settings-row">
-      ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.color}">${wallpaper.title}</button>`).join("")}
+      ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.id}">${wallpaper.title}</button>`).join("")}
       <button type="button" data-reset>Show Boot Next Visit</button>
     </div>
   `;
   content.querySelectorAll("[data-wallpaper]").forEach((button) => {
-    button.addEventListener("click", () => setWallpaper(button.dataset.wallpaper));
+    button.addEventListener("click", () => setWallpaper(WALLPAPERS.find((wallpaper) => wallpaper.id === button.dataset.wallpaper)));
   });
   content.querySelector("[data-reset]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
 }
 
-function setWallpaper(color) {
+function setWallpaper(wallpaper) {
+  const next = typeof wallpaper === "string" ? { color: wallpaper } : wallpaper;
+  const color = next?.color || brandAssets.fallbackWallpaperColor;
   document.documentElement.style.setProperty("--wallpaper-color", color);
-  localStorage.setItem("awakenWallpaper", color);
+  document.documentElement.style.setProperty("--wallpaper-image", next?.image ? `url("${next.image}")` : "none");
+  document.documentElement.style.setProperty("--wallpaper-size", next?.mode === "tile" ? "auto" : next?.mode || "cover");
+  document.documentElement.style.setProperty("--wallpaper-repeat", next?.mode === "tile" ? "repeat" : "no-repeat");
+  localStorage.setItem("awakenWallpaper", JSON.stringify(next || { color }));
 }
 
 function applySavedWallpaper() {
-  const saved = localStorage.getItem("awakenWallpaper") || "#da4a44";
-  document.documentElement.style.setProperty("--wallpaper-color", saved);
+  const raw = localStorage.getItem("awakenWallpaper");
+  const saved = raw ? safeJson(raw) || { color: raw } : WALLPAPERS[0];
+  setWallpaper(saved);
+}
+
+function safeJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function openTerminal(prefill = "") {

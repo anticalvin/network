@@ -6,8 +6,8 @@ AWAKEN NETWORK is an OS-style shell for AWAKEN CULT's real ecosystem: archive pr
 
 ## Current Build
 
-- AWAKEN OS boot screen.
-- Solid default AWAKEN red wallpaper: `#da4a44`.
+- Supplied AWAKEN BIOS, startup, guest login, and ads pages under `awaken-system/`.
+- AWAKEN default image wallpaper with solid `#da4a44` offline fallback.
 - Classic wallpaper themes in Settings and `A:\Wallpapers`: AWAKEN Red, XP Teal, XP Blue, XP Olive, XP Silver, and Black.
 - Top status bar, bottom XP-style taskbar, Start menu, and desktop icons.
 - Window manager with close/minimize, draggable desktop windows, and mobile full-screen windows.
@@ -18,12 +18,15 @@ AWAKEN NETWORK is an OS-style shell for AWAKEN CULT's real ecosystem: archive pr
 - Normalized local, remote, Supabase Storage, and ImgBB media sources.
 - Phone-friendly content editor at `/admin.html` for local editorial preview.
 - Shop app with a Windows 3D Pipes-inspired in-development screen.
-- Supabase migration with structured content, media, import provenance, revisions, and RLS.
+- Supabase migrations with structured content, media, virtual filesystem, campaigns, Discord XP mirror tables, storage buckets, Realtime publication setup, and RLS.
+- MIND desktop app that reads the approved XP channel mirror and falls back when Supabase is unavailable.
+- MIND Discord bot bridge foundation for server-side #xp mirroring.
+- AWAKEN Media Player with canvas visualizer, local signal playback, and external Apple Music/SoundCloud links.
 - Rerunnable tweet-export importer that produces an unpublished editorial review queue.
 - Automated tests for persistence, scheduling, expiry, frequency, and media safety.
 - Explorer with virtual `A:\` paths.
 - Package/project hubs for XP, HATED, XPV2, NEW SWAG WHO DIS?, CENTRAL AFRICAN TIME, State Of Mind, and NOISE.
-- Music/Radio app with Apple Music and SoundCloud links.
+- Media Player app with Apple Music and SoundCloud links.
 - Community and LIVE INTERNET apps with real AWAKEN links.
 - Terminal commands: `help`, `dir`, `tree`, `cd`, `open`, `find`, `type readme`, `scan`, `recover`, `whoami`, `version`, `discord`.
 
@@ -53,6 +56,13 @@ Edit `styles.css`:
 
 - `--awaken-red` for the standard wallpaper color.
 - `--wallpaper-color` for runtime wallpaper state.
+- `--wallpaper-image` for runtime image wallpapers.
+
+For local Supabase browser testing, set the public key at runtime without committing it:
+
+```js
+localStorage.setItem("awaken.supabaseAnonKey", "your_public_or_anon_key");
+```
 
 ## Verification
 

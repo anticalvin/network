@@ -19,5 +19,7 @@ export function loadDiscordConfig(env = process.env) {
     publicKey: env.DISCORD_PUBLIC_KEY.trim(),
     guildId: env.DISCORD_GUILD_ID.trim(),
     xpChannelId: env.DISCORD_XP_CHANNEL_ID.trim(),
+    supabaseUrl: env.SUPABASE_URL?.trim() || "",
+    supabaseServerKey: env.SUPABASE_SERVER_KEY?.trim() || "",
   };
 }

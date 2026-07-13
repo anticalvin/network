@@ -1,8 +1,10 @@
 import { defaultContent } from "../src/content/default-content.js";
 import { ContentRepository } from "../src/data/content-repository.js";
 import { safeUrl } from "../src/domain/media.js";
+import { createSupabaseRestClient } from "../src/data/supabase-client.js";
 
 const repository = new ContentRepository();
+const supabaseClient = createSupabaseRestClient();
 let content = (await repository.getPublicContent()).content;
 let section = "transmissions";
 let selectedIndex = null;
@@ -18,8 +20,18 @@ const schemas = {
   ],
   links: [["label", "Label", "text", true], ["detail", "Description", "textarea", true], ["url", "URL", "url", true], ["verified", "Verified", "checkbox"]],
   themes: [["label", "Label", "text", true], ["color", "Color", "color", true], ["enabled", "Enabled", "checkbox"], ["sortOrder", "Sort order", "number"]],
-  fragments: [["title", "Title", "text", true], ["body", "Text", "textarea", true], ["sourceType", "Source type", "text", true], ["sourceRef", "Source record", "text", true], ["status", "Status", "select", true, ["draft", "published", "archived"]]]
+  fragments: [["title", "Title", "text", true], ["body", "Text", "textarea", true], ["sourceType", "Source type", "text", true], ["sourceRef", "Source record", "text", true], ["status", "Status", "select", true, ["draft", "published", "archived"]]],
+  filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
+  media: [["originalFilename", "Filename", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "External URL", "url"], ["mimeType", "MIME type", "text", true], ["caption", "Caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
+  campaigns: [["slug", "Slug", "text", true], ["title", "Title", "text", true], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]], ["weight", "Weight", "number"], ["startsAt", "Starts", "datetime-local"], ["endsAt", "Ends", "datetime-local"]],
+  mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]]
 };
+
+content.filesystem ||= [{ id: "local-community-xp", name: "XP", path: "A:\\Community\\XP", nodeType: "folder", visibility: "public", status: "published" }];
+content.media ||= [{ id: "local-wallpaper-default", originalFilename: "awaken-default.webp", provider: "imgbb", externalUrl: "https://i.ibb.co/F4cCLp3t/a3a6a063-4a72-4b8a-b693-b774e7acbf81.webp", mimeType: "image/webp", processingStatus: "ready", moderationStatus: "approved" }];
+content.campaigns ||= [{ id: "local-call-awaken", slug: "call-awaken", title: "CALL-AWAKEN", status: "draft", weight: 1 }];
+content.mindBridge ||= [{ id: "xp", displayName: "XP", discordGuildId: "946069318473502770", discordChannelId: "1525921490414080031", connectionStatus: "pending server process", publicVisible: true }];
+document.getElementById("admin-mode").textContent = supabaseClient.configured ? "Supabase configured / local writes disabled" : "Local editorial preview";
 
 document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", () => {
   section = button.dataset.section;
@@ -46,7 +58,7 @@ function render() {
 
 function createEntry() {
   const id = `draft-${Date.now()}`;
-  const base = section === "transmissions" ? { id, status: "draft", priority: 0, mobileEligible: true, desktopEligible: true, frequency: { scope: "browser", maxDisplays: 1 }, routes: ["desktop"], dismissal: "browser" } : { id };
+  const base = section === "transmissions" ? { id, status: "draft", priority: 0, mobileEligible: true, desktopEligible: true, frequency: { scope: "browser", maxDisplays: 1 }, routes: ["desktop"], dismissal: "browser" } : { id, status: "draft" };
   content[section] = [base, ...(content[section] || [])];
   selectedIndex = 0;
   render();

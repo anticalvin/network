@@ -16,4 +16,8 @@ MIND runs as a separate Node.js process. It is not bundled into the static AWAKE
 3. Export the variables from `.env` into the shell environment.
 4. Run `npm run discord:mind`.
 
-The bot observes human messages only in `#xp`. It responds only to `!mind status` or a direct mention, with a per-user cooldown. It does not persist messages or mirror Discord content to Supabase.
+The bot observes human messages only in `#xp`. It responds only to `!mind status` or a direct mention, with a per-user cooldown.
+
+When `SUPABASE_URL` and `SUPABASE_SERVER_KEY` are present, it also mirrors permitted #xp messages into `public.discord_messages` through the trusted server process. It ignores bots, other channels, empty messages, attachments, embeds, and private profile data. Edits update the mirrored row; deletes mark the row removed for moderation/history rather than exposing stale public content.
+
+Do not set `SUPABASE_SERVER_KEY` in `config.js` or any browser-delivered file.

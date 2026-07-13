@@ -4,8 +4,15 @@ import {
   PermissionFlagsBits,
 } from "discord.js";
 import { loadDiscordConfig } from "./config.js";
+import { MindSupabaseBridge } from "./mind-supabase-bridge.js";
 
 const config = loadDiscordConfig();
+const bridge = new MindSupabaseBridge({
+  supabaseUrl: config.supabaseUrl,
+  supabaseServerKey: config.supabaseServerKey,
+  guildId: config.guildId,
+  channelId: config.xpChannelId,
+});
 const cooldowns = new Map();
 const cooldownMs = 10_000;
 
@@ -40,11 +47,13 @@ client.once("ready", async () => {
   }
 
   console.info(`MIND connected to ${guild.name} and resolved #${channel.name}.`);
+  if (!bridge.enabled) console.info("MIND Supabase bridge disabled; set SUPABASE_URL and SUPABASE_SERVER_KEY to mirror #xp.");
   await channel.send("MIND connected. XP channel linked to AWAKEN NETWORK.");
 });
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot || message.channelId !== config.xpChannelId) return;
+  bridge.mirrorCreate(message).catch((error) => console.error("MIND bridge create failed:", error.message));
 
   const isStatus = message.content.trim().toLowerCase() === "!mind status";
   const isMentioned = message.mentions.has(client.user);
@@ -55,6 +64,14 @@ client.on("messageCreate", async (message) => {
   cooldowns.set(message.author.id, Date.now());
 
   await message.reply("MIND is online and connected to AWAKEN NETWORK.");
+});
+
+client.on("messageUpdate", (_oldMessage, newMessage) => {
+  bridge.mirrorUpdate(newMessage).catch((error) => console.error("MIND bridge update failed:", error.message));
+});
+
+client.on("messageDelete", (message) => {
+  bridge.mirrorDelete(message).catch((error) => console.error("MIND bridge delete failed:", error.message));
 });
 
 client.on("error", (error) => {

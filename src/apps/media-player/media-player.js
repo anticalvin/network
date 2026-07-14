@@ -3,17 +3,17 @@ export function renderMediaPlayer(container, { projects, links, audio }) {
     <div class="media-player">
       <aside class="media-nav">
         <strong>AWAKEN Media Player</strong>
-        <button type="button" data-mode="BARS">BARS</button>
-        <button type="button" data-mode="SIGNAL">SIGNAL</button>
         <button type="button" data-artist>Apple Music</button>
         <button type="button" data-soundcloud>SoundCloud</button>
+        <button type="button" data-spotify>Spotify</button>
+        <button type="button" data-youtube>YouTube</button>
       </aside>
       <section class="media-now">
         <canvas class="media-visualizer" width="640" height="220" aria-hidden="true"></canvas>
         <div class="media-controls">
-          <button type="button" data-play>Play Local Signal</button>
+          <button type="button" data-play>Play Preview</button>
           <button type="button" data-stop>Stop</button>
-          <span data-track>local snippet / simulated signal</span>
+          <span data-track>AWAKEN audio preview</span>
         </div>
         <div class="media-list">
           ${projects.filter((project) => project.tracks.length).map((project) => `<button type="button" data-project="${project.id}"><img src="${project.cover}" alt=""><span>${project.title}<small>${project.type} / ${project.year}</small></span></button>`).join("")}
@@ -31,12 +31,21 @@ export function renderMediaPlayer(container, { projects, links, audio }) {
     audio.pause();
     audio.currentTime = 0;
   });
-  container.querySelector("[data-artist]").addEventListener("click", () => window.open(links.appleArtist, "_blank", "noopener"));
-  container.querySelector("[data-soundcloud]").addEventListener("click", () => window.open(links.soundcloud, "_blank", "noopener"));
+  container.querySelector("[data-artist]").addEventListener("click", () => openExternal(links.appleArtist));
+  container.querySelector("[data-soundcloud]").addEventListener("click", () => openExternal(links.soundcloud));
+  container.querySelector("[data-spotify]").addEventListener("click", () => openExternal(links.spotify));
+  container.querySelector("[data-youtube]").addEventListener("click", () => openExternal(links.youtube));
+  container.querySelectorAll("[data-project]").forEach((button) => {
+    button.addEventListener("click", () => openExternal(projects.find((project) => project.id === button.dataset.project)?.url));
+  });
   return () => {
     stopViz();
     audio.pause();
   };
+}
+
+function openExternal(url) {
+  if (url) window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function startVisualizer(canvas) {

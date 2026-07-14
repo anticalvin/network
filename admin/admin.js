@@ -2,6 +2,8 @@ import { defaultContent } from "../src/content/default-content.js";
 import { ContentRepository } from "../src/data/content-repository.js";
 import { safeUrl } from "../src/domain/media.js";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
+import { TEAM_MEMBERS } from "../src/content/contributors.js";
+import { iconManifest } from "../src/content/icon-manifest.js";
 
 const repository = new ContentRepository();
 const supabaseClient = createSupabaseRestClient();
@@ -24,14 +26,18 @@ const schemas = {
   filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
   media: [["originalFilename", "Filename", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "External URL", "url"], ["mimeType", "MIME type", "text", true], ["caption", "Caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
   campaigns: [["slug", "Slug", "text", true], ["title", "Title", "text", true], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]], ["weight", "Weight", "number"], ["startsAt", "Starts", "datetime-local"], ["endsAt", "Ends", "datetime-local"]],
-  mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]]
+  mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]],
+  contributors: [["displayName", "Display name", "text", true], ["slug", "Slug", "text", true], ["avatarUrl", "Avatar URL", "url"], ["roleLabel", "Role label", "text"], ["biography", "Biography", "textarea"], ["externalUrl", "External URL", "url"], ["discordUserId", "Discord user ID", "text"], ["isTeam", "Team member", "checkbox"], ["isActive", "Active", "checkbox"]],
+  icons: [["applicationId", "Application ID", "text", true], ["label", "Label", "text", true], ["remoteIconUrl", "Remote icon URL", "url"], ["enabled", "Enabled", "checkbox"]]
 };
 
 content.filesystem ||= [{ id: "local-community-xp", name: "XP", path: "A:\\Community\\XP", nodeType: "folder", visibility: "public", status: "published" }];
 content.media ||= [{ id: "local-wallpaper-default", originalFilename: "awaken-default.webp", provider: "imgbb", externalUrl: "https://i.ibb.co/F4cCLp3t/a3a6a063-4a72-4b8a-b693-b774e7acbf81.webp", mimeType: "image/webp", processingStatus: "ready", moderationStatus: "approved" }];
 content.campaigns ||= [{ id: "local-call-awaken", slug: "call-awaken", title: "CALL-AWAKEN", status: "draft", weight: 1 }];
-content.mindBridge ||= [{ id: "xp", displayName: "XP", discordGuildId: "946069318473502770", discordChannelId: "1525921490414080031", connectionStatus: "pending server process", publicVisible: true }];
-document.getElementById("admin-mode").textContent = supabaseClient.configured ? "Supabase configured / local writes disabled" : "Local editorial preview";
+content.mindBridge ||= [{ id: "xp", displayName: "XP", discordGuildId: "946069318473502770", discordChannelId: "1525921490414080031", connectionStatus: "Server-managed", publicVisible: true }];
+content.contributors ||= TEAM_MEMBERS.map((person) => ({ ...person, isTeam: true, isActive: true }));
+content.icons ||= iconManifest.map((icon) => ({ id: icon.applicationId, applicationId: icon.applicationId, label: icon.label, remoteIconUrl: icon.remoteIconUrl || "", enabled: icon.enabled }));
+document.getElementById("admin-mode").textContent = supabaseClient.configured ? "Editorial preview / publishing locked" : "Local editorial preview";
 
 document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", () => {
   section = button.dataset.section;
@@ -49,7 +55,7 @@ function render() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `entry${selectedIndex === index ? " active" : ""}`;
-    button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.label || entry.title || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.url || entry.color || "draft")}</small>`;
+    button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.slug || entry.applicationId || entry.url || entry.color || "draft")}</small>`;
     button.addEventListener("click", () => { selectedIndex = index; render(); });
     list.appendChild(button);
   });
@@ -88,6 +94,10 @@ function saveForm(event) {
   if (urlFields.some(([key]) => entry[key] && !safeUrl(entry[key]))) { showStatus("Use a valid http or https URL.", true); renderEditor(); return; }
   content[section][selectedIndex] = entry;
   content = repository.saveLocalDraft(content);
+  if (section === "icons") {
+    const overrides = Object.fromEntries(content.icons.filter((icon) => icon.remoteIconUrl).map((icon) => [icon.applicationId, icon.remoteIconUrl]));
+    localStorage.setItem("awaken.iconOverrides", JSON.stringify(overrides));
+  }
   showStatus("Saved. The public desktop will use this local preview after refresh.");
   render();
 }

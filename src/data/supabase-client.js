@@ -4,8 +4,9 @@ const DEFAULT_TIMEOUT_MS = 3500;
 
 export function createSupabaseRestClient(config = getRuntimeConfig()) {
   const url = String(config.supabaseUrl || "").replace(/\/+$/, "");
-  const key = config.supabaseAnonKey || config.supabasePublishableKey || "";
+  const key = config.supabasePublishableKey || config.supabaseAnonKey || "";
   const configured = Boolean(url && key);
+  let realtimeClient;
 
   async function request(path, { method = "GET", headers = {}, body, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     if (!configured) {
@@ -44,6 +45,21 @@ export function createSupabaseRestClient(config = getRuntimeConfig()) {
     configured,
     source: configured ? "supabase" : "bundled",
     request,
+    subscribe({ table, event = "*", filter }, callback, onStatus = () => {}) {
+      const createClient = globalThis.supabase?.createClient;
+      if (!configured || typeof createClient !== "function") {
+        onStatus("UNAVAILABLE");
+        return () => {};
+      }
+      realtimeClient ||= createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        realtime: { params: { eventsPerSecond: 4 } }
+      });
+      const channel = realtimeClient.channel(`awaken:${table}:${crypto.randomUUID()}`);
+      channel.on("postgres_changes", { event, schema: "public", table, ...(filter ? { filter } : {}) }, callback);
+      channel.subscribe(onStatus);
+      return () => { void realtimeClient.removeChannel(channel); };
+    },
     from(table) {
       return {
         select: (query = "*") => request(`/rest/v1/${table}?select=${encodeURIComponent(query)}`),

@@ -4,6 +4,7 @@ window.AWAKEN_CONFIG = Object.freeze({
   adminBaseUrl: "./admin.html",
   supabaseProjectId: "gnfxhelagmcferkqpngr",
   supabaseUrl: "https://gnfxhelagmcferkqpngr.supabase.co",
+  supabasePublishableKey: globalThis.AWAKEN_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_ASOjRsDQnouUBx4pfDVCIw_aZ_lc9PZ",
   supabaseAnonKey: globalThis.AWAKEN_SUPABASE_ANON_KEY || localStorage.getItem("awaken.supabaseAnonKey") || "",
   discord: {
     guildId: "946069318473502770",

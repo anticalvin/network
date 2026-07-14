@@ -21,10 +21,10 @@ export class CommunityRepository extends BaseRepository {
     try {
       const rows = this.adapter ? await this.adapter.getMessages(filters) : this.fallback;
       this.source = this.adapter?.source || "bundled";
-      return rows.length ? rows : this.fallback;
-    } catch {
+      return this.adapter ? rows : this.fallback;
+    } catch (error) {
       this.source = "fallback";
-      return this.fallback;
+      throw error;
     }
   }
 

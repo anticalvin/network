@@ -7,15 +7,18 @@ Configure `config.js` at deployment time:
 - `contentEndpoint`: optional public JSON/API endpoint. Empty uses bundled/local content.
 - `adminBaseUrl`: configurable admin location; no final subdomain is assumed.
 - `supabaseUrl`: browser-safe project URL. This repo is wired to `https://gnfxhelagmcferkqpngr.supabase.co`.
-- `supabaseAnonKey`: publishable/anon key only. Never use the service-role/server key in browser files.
+- `supabasePublishableKey`: browser-safe publishable key. Never use the service-role/server key in browser files.
 
 Applied migrations:
 
 - `202607130001_live_parallel_system` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-13.
+- `202607140001_network_stabilization` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
+- `202607140002_network_stabilization_policy_tuning` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
+- `202607140003_network_stabilization_indexes` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
 
 The live database had no recorded migration history before this update, so the original `content_items`, `media`, `content_media`, `transmission_rules`, `import_sources`, `content_sources`, and `content_revisions` schema is treated as the unregistered baseline. Keep `supabase/migrations/202607110001_transmission_update.sql` for fresh/local project rebuilds, and keep `supabase/migrations/202607130001_live_parallel_system.sql` as the additive live-system migration.
 
-Create the admin claim only from a trusted server process. Use `app_metadata.user_role = "admin"` or the equivalent trusted `user_role` JWT claim. Production admin deployment must add authenticated Supabase repository writes before using `admin.html` for production publishing; the included admin still preserves local editorial preview mode.
+Create the admin claim only from a trusted server process. Use `app_metadata.user_role = "admin"` or the equivalent trusted `user_role` JWT claim. Production admin deployment must add authenticated Supabase repository writes before using `admin.html` for production publishing; the included admin preserves local editorial preview mode. See `docs/ADMIN_ACCESS.md`.
 
 For MIND server mirroring, run the bot process with:
 
@@ -40,4 +43,4 @@ npm run import:tweets -- /path/to/export.json tweet-review-queue.json
 
 The output preserves IDs, timestamps, source type, raw provenance, media, and outbound links; removes exact/near text duplicates; marks every item `review`; and never publishes. Review and transform selected records into sourced content manually or through a future authenticated importer.
 
-Run checks with `npm test`. Preview with `npm run serve`, then test `/` for the supplied BIOS/startup/login sequence, `/?skipBoot=1` for direct development access, and `/admin.html` for the editor.
+Run checks with `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build`. Preview with `npm run serve`, then test `/` for the supplied BIOS/startup/login sequence, `/?skipBoot=1` for direct development access, and `/admin.html` for the editor.

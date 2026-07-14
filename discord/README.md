@@ -18,6 +18,6 @@ MIND runs as a separate Node.js process. It is not bundled into the static AWAKE
 
 The bot observes human messages only in `#xp`. It responds only to `!mind status` or a direct mention, with a per-user cooldown.
 
-When `SUPABASE_URL` and `SUPABASE_SERVER_KEY` are present, it also mirrors permitted #xp messages into `public.discord_messages` through the trusted server process. It ignores bots, other channels, empty messages, attachments, embeds, and private profile data. Edits update the mirrored row; deletes mark the row removed for moderation/history rather than exposing stale public content.
+When `SUPABASE_URL` and `SUPABASE_SERVER_KEY` are present, it also mirrors permitted #xp messages into `public.discord_messages` through the trusted server process. It ignores bots, other channels, embeds, and private profile data. Bounded HTTPS attachment metadata is supported. Edits update the mirrored row; deletes add a deletion timestamp and remove the row from public reads.
 
 Do not set `SUPABASE_SERVER_KEY` in `config.js` or any browser-delivered file.

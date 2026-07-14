@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MindSupabaseBridge, normalizeBody } from "../discord/mind-supabase-bridge.js";
+import { MindSupabaseBridge, normalizeAttachments, normalizeBody } from "../discord/mind-supabase-bridge.js";
 
 function message(overrides = {}) {
   return {
@@ -31,6 +31,8 @@ test("MIND maps Discord messages without storing extra profile data", () => {
   assert.equal(record.body, "hello xp");
   assert.equal(record.discord_created_at, "2026-07-13T10:00:00.000Z");
   assert.equal("email" in record, false);
+  assert.deepEqual(record.attachments, []);
+  assert.equal(record.visibility, "public");
 });
 
 test("MIND bridge disabled mode is a no-op fallback", async () => {
@@ -42,4 +44,14 @@ test("MIND bridge disabled mode is a no-op fallback", async () => {
 test("message bodies are normalized and bounded", () => {
   assert.equal(normalizeBody("  a\n\n b  "), "a b");
   assert.equal(normalizeBody("x".repeat(2000)).length, 1800);
+});
+
+test("attachments retain only bounded HTTPS metadata", () => {
+  const attachments = new Map([
+    ["1", { id: "1", name: "image.png", url: "https://cdn.discordapp.com/image.png", contentType: "image/png", size: 20 }],
+    ["2", { id: "2", name: "unsafe", url: "http://example.com/file" }]
+  ]);
+  assert.deepEqual(normalizeAttachments(attachments), [{
+    id: "1", name: "image.png", url: "https://cdn.discordapp.com/image.png", contentType: "image/png", size: 20, width: null, height: null
+  }]);
 });

@@ -4,6 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "lint": "node --check script.js && node --check admin/admin.js && node --check discord/mind-bot.js && node --check discord/mind-supabase-bridge.js",
+    "typecheck": "node --check script.js && node --check src/apps/mind/mind-app.js && node --check src/data/adapters/supabase-community-adapter.js",
+    "build": "node tools/verify-static.mjs",
     "serve": "python3 -m http.server 5179 --bind 127.0.0.1",
     "discord:mind": "node discord/mind-bot.js",
     "import:tweets": "node tools/import-tweets.mjs"

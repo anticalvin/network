@@ -45,6 +45,7 @@ export class MindSupabaseBridge {
       headers: { Prefer: "return=minimal" },
       body: {
         body: normalizeBody(message.content),
+        attachments: normalizeAttachments(message.attachments),
         discord_edited_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -58,6 +59,7 @@ export class MindSupabaseBridge {
       headers: { Prefer: "return=minimal" },
       body: {
         moderation_status: "removed",
+        deleted_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
     });
@@ -70,7 +72,7 @@ export class MindSupabaseBridge {
       message.guildId === this.guildId &&
       message.channelId === this.channelId &&
       !message.author?.bot &&
-      normalizeBody(message.content)
+      (normalizeBody(message.content) || normalizeAttachments(message.attachments).length)
     );
   }
 
@@ -82,11 +84,13 @@ export class MindSupabaseBridge {
       author_display_name: message.member?.displayName || message.author.globalName || message.author.username || "unknown",
       author_avatar_url: typeof message.author.displayAvatarURL === "function" ? message.author.displayAvatarURL({ size: 64 }) : null,
       body: normalizeBody(message.content),
+      attachments: normalizeAttachments(message.attachments),
       reply_to_discord_message_id: message.reference?.messageId || null,
       discord_created_at: message.createdAt?.toISOString?.() || new Date().toISOString(),
       discord_edited_at: message.editedAt?.toISOString?.() || null,
       moderation_status: "approved",
-      metadata: { source: "mind-bot" }
+      visibility: "public",
+      metadata: { source: "mind-bot", discord_channel_id: message.channelId }
     };
   }
 
@@ -102,7 +106,11 @@ export class MindSupabaseBridge {
       },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
-    if (!response.ok) throw new Error(`Supabase bridge failed: ${response.status}`);
+    if (!response.ok) {
+      const error = new Error(`Supabase bridge failed: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
     if (response.status === 204) return null;
     const text = await response.text();
     return text ? JSON.parse(text) : null;
@@ -111,4 +119,16 @@ export class MindSupabaseBridge {
 
 export function normalizeBody(value) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, MAX_BODY_LENGTH);
+}
+
+export function normalizeAttachments(collection) {
+  return Array.from(collection?.values?.() || []).slice(0, 8).map((item) => ({
+    id: String(item.id || ""),
+    name: String(item.name || "attachment").slice(0, 180),
+    url: /^https:\/\//.test(item.url || "") ? item.url : null,
+    contentType: item.contentType || null,
+    size: Number.isFinite(item.size) ? item.size : null,
+    width: Number.isFinite(item.width) ? item.width : null,
+    height: Number.isFinite(item.height) ? item.height : null
+  })).filter((item) => item.url);
 }

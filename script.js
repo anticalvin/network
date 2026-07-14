@@ -11,12 +11,13 @@ import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
 import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
+import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
   "A:\\",
   "Loading user profile...",
-  "Restoring previous session...",
+  "Initializing clean desktop...",
   "Loading archive index...",
   "Loading preferences...",
   "Ready."
@@ -31,6 +32,7 @@ const LINKS = {
   vzn: "https://vzn.awakencult.com/",
   noise: "https://noise.awakencult.com/",
   soundcloud: "https://soundcloud.com/awakencult",
+  spotify: "https://open.spotify.com/album/61bZigX7xvLsQEo3CxmMJ5",
   appleArtist: "https://music.apple.com/za/artist/awaken-cult/1448907538"
 };
 
@@ -141,7 +143,7 @@ const PROJECTS = [
     size: "public web tool",
     health: 89,
     status: "Online",
-    cover: "assets/img/secret-photo.webp",
+    cover: "assets/img/secret-wallpaper.webp",
     url: LINKS.noise,
     tags: ["noise", "artwork", "tool", "canvas", "export"],
     readme: "NOISE is live at noise.awakencult.com. Public page describes an offline node graph, mobile stack, overlays, format nodes, and export presets.",
@@ -167,13 +169,14 @@ const APPS = [
 
 const SOCIALS = [
   { title: "Website", detail: "Official landing page", url: LINKS.website },
-  { title: "Instagram", detail: "Confirmed @awakencult profile. Public metadata showed 6,909 followers, 36 following, 77 posts during research.", url: LINKS.instagram },
-  { title: "X", detail: "Confirmed @awakencult profile. Public page lists Global, joined August 2017, 2,641 followers.", url: LINKS.x },
-  { title: "YouTube", detail: "Confirmed @awakencult channel. Public page lists 104 subscribers and 3 videos.", url: LINKS.youtube },
+  { title: "Instagram", detail: "Official @awakencult profile.", url: LINKS.instagram },
+  { title: "X", detail: "Official @awakencult profile.", url: LINKS.x },
+  { title: "YouTube", detail: "Official AWAKEN CULT channel.", url: LINKS.youtube },
   { title: "Discord", detail: "Primary community invite.", url: LINKS.discord },
   { title: "VZN", detail: "Live app: Explore AWAKEN CULT's spatial social world.", url: LINKS.vzn },
   { title: "NOISE", detail: "Live artwork tool with node graph, mobile editor, overlays, and export presets.", url: LINKS.noise },
   { title: "SoundCloud", detail: "AWAKEN CULT music profile.", url: LINKS.soundcloud },
+  { title: "Spotify", detail: "Listen to XP by AWAKEN CULT.", url: LINKS.spotify },
   { title: "Apple Music", detail: "Verified artist catalog page.", url: LINKS.appleArtist }
 ];
 
@@ -219,6 +222,9 @@ const supabaseClient = createSupabaseRestClient();
 const communityRepository = new CommunityRepository({ adapter: new SupabaseCommunityAdapter(supabaseClient) });
 const sessionDisplays = {};
 let bootFinished = false;
+let clockTimer = 0;
+let clockResyncTimer = 0;
+let contextMenu = null;
 
 const bootloader = document.getElementById("bootloader");
 const osContainer = document.getElementById("os-container");
@@ -233,7 +239,10 @@ async function init() {
   document.getElementById("boot-skip").addEventListener("click", finishBoot);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && bootloader.style.display !== "none") finishBoot();
-    if (event.key === "Escape") closeStartMenu();
+    if (event.key === "Escape") {
+      closeStartMenu();
+      closeContextMenu();
+    }
   });
   runBoot();
 }
@@ -270,11 +279,11 @@ function finishBoot() {
   applySavedWallpaper();
   bootloader.style.display = "none";
   osContainer.style.display = "block";
-  updateClock();
-  setInterval(updateClock, 30000);
+  startClock();
   buildDesktop();
   bindStartMenu();
-  openExplorer("A:\\Archive");
+  bindDesktopContextMenu();
+  applyPreferences();
   scheduleTransmissions();
 }
 
@@ -283,6 +292,20 @@ function updateClock() {
   const label = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   document.getElementById("top-clock").textContent = label;
   document.getElementById("task-clock").textContent = label;
+}
+
+function startClock() {
+  clearTimeout(clockTimer);
+  clearInterval(clockResyncTimer);
+  updateClock();
+  clockTimer = window.setTimeout(() => {
+    updateClock();
+    clockTimer = window.setInterval(updateClock, 1000);
+  }, 1000 - (Date.now() % 1000));
+  clockResyncTimer = window.setInterval(updateClock, 60_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") updateClock();
+  });
 }
 
 function buildDesktop() {
@@ -299,11 +322,13 @@ function iconButton(app, manifest = {}) {
   const button = document.createElement("button");
   button.className = "desktop-icon";
   button.type = "button";
-  const image = manifest.imageSource ? `<img src="${manifest.imageSource}" alt="${manifest.alt || ""}" loading="lazy" />` : "";
+  const source = iconSource(manifest);
+  const image = source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(manifest.alt || "")}" loading="lazy" />` : "";
   button.innerHTML = `<span class="desktop-glyph">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
   const img = button.querySelector("img");
   if (img) img.addEventListener("error", () => img.remove());
-  button.addEventListener("click", app.action);
+  button.addEventListener("click", () => app.action());
+  button.addEventListener("contextmenu", (event) => showContextMenu(event, "icon", app));
   return button;
 }
 
@@ -312,16 +337,19 @@ function bindStartMenu() {
   document.getElementById("start-search").addEventListener("input", (event) => renderStartList(event.target.value));
   document.querySelector("[data-action='run']").addEventListener("click", () => {
     closeStartMenu();
-    openTerminal("run");
+    openTerminal();
   });
   document.querySelector("[data-action='reboot']").addEventListener("click", () => {
     localStorage.removeItem("awakenBooted");
     location.reload();
   });
   renderStartList("");
+  const startEye = document.querySelector(".start-dot img");
+  startEye?.addEventListener("error", () => startEye.remove());
 }
 
 function toggleStartMenu() {
+  closeContextMenu();
   if (startMenu.hidden) {
     renderStartList("");
     startMenu.hidden = false;
@@ -357,9 +385,11 @@ function renderStartList(term) {
 }
 
 function createWindow(title, options = {}) {
+  closeContextMenu();
   const win = document.createElement("section");
   win.className = "window";
   win.dataset.id = `window-${++windowCount}`;
+  if (options.appId) win.dataset.appId = options.appId;
   win.style.left = `${70 + (windowCount % 5) * 28}px`;
   win.style.top = `${44 + (windowCount % 5) * 22}px`;
   win.style.zIndex = ++highestZ;
@@ -376,11 +406,19 @@ function createWindow(title, options = {}) {
   min.type = "button";
   min.textContent = "_";
   min.title = "Minimize";
+  min.setAttribute("aria-label", `Minimize ${title}`);
+  const max = document.createElement("button");
+  max.className = "maximize";
+  max.type = "button";
+  max.textContent = "□";
+  max.title = "Maximize";
+  max.setAttribute("aria-label", `Maximize ${title}`);
   const close = document.createElement("button");
   close.type = "button";
   close.textContent = "x";
   close.title = "Close";
-  controls.append(min, close);
+  close.setAttribute("aria-label", `Close ${title}`);
+  controls.append(min, max, close);
   header.appendChild(controls);
 
   const content = document.createElement("div");
@@ -398,23 +436,74 @@ function createWindow(title, options = {}) {
     win.dispatchEvent(new CustomEvent("awaken:window-close"));
     task.remove();
     win.remove();
+    activateTopWindow();
   });
   min.addEventListener("click", (event) => {
     event.stopPropagation();
-    win.hidden = true;
-    task.classList.remove("active");
+    minimizeWindow(win);
+  });
+  max.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMaximize(win);
   });
   win.addEventListener("pointerdown", () => makeActive(win));
+  win.addEventListener("contextmenu", (event) => {
+    if (event.target.closest("input, textarea, [contenteditable='true']")) return;
+    showContextMenu(event, "window", win);
+  });
   return { win, content };
 }
 
 function makeActive(win) {
+  if (!win?.isConnected || win.hidden) return;
   document.querySelectorAll(".window").forEach((node) => node.classList.remove("active"));
   document.querySelectorAll(".task-item").forEach((node) => node.classList.remove("active"));
   win.classList.add("active");
   win.style.zIndex = ++highestZ;
   const task = document.querySelector(`[data-window-task="${win.dataset.id}"]`);
   if (task) task.classList.add("active");
+}
+
+function focusExistingWindow(appId) {
+  const win = document.querySelector(`.window[data-app-id="${CSS.escape(appId)}"]`);
+  if (!win) return false;
+  restoreWindow(win);
+  return true;
+}
+
+function minimizeWindow(win) {
+  if (!win?.isConnected) return;
+  win.hidden = true;
+  win.classList.remove("active");
+  document.querySelector(`[data-window-task="${win.dataset.id}"]`)?.classList.remove("active");
+  activateTopWindow();
+}
+
+function restoreWindow(win) {
+  if (!win?.isConnected) return;
+  win.hidden = false;
+  makeActive(win);
+}
+
+function activateTopWindow() {
+  const visible = [...document.querySelectorAll(".window:not([hidden])")];
+  const next = visible.sort((a, b) => Number(b.style.zIndex || 0) - Number(a.style.zIndex || 0))[0];
+  document.querySelectorAll(".task-item").forEach((node) => node.classList.remove("active"));
+  if (next) makeActive(next);
+}
+
+function toggleMaximize(win) {
+  if (!win?.isConnected) return;
+  if (win.dataset.maximized === "true") {
+    const previous = safeJson(win.dataset.restoreRect) || {};
+    Object.assign(win.style, previous);
+    delete win.dataset.maximized;
+  } else {
+    win.dataset.restoreRect = JSON.stringify({ left: win.style.left, top: win.style.top, width: win.style.width, height: win.style.height });
+    win.dataset.maximized = "true";
+    Object.assign(win.style, { left: "0px", top: "0px", width: "100%", height: "100%" });
+  }
+  makeActive(win);
 }
 
 function makeDraggable(win, handle) {
@@ -451,9 +540,11 @@ function addTask(win, title) {
   task.dataset.windowTask = win.dataset.id;
   task.textContent = title;
   task.addEventListener("click", () => {
-    win.hidden = !win.hidden && win.classList.contains("active");
-    if (!win.hidden) makeActive(win);
+    if (win.hidden) restoreWindow(win);
+    else if (win.classList.contains("active")) minimizeWindow(win);
+    else makeActive(win);
   });
+  task.addEventListener("contextmenu", (event) => showContextMenu(event, "window", win));
   document.querySelectorAll(".task-item").forEach((node) => node.classList.remove("active"));
   taskButtons.appendChild(task);
   return task;
@@ -461,8 +552,9 @@ function addTask(win, title) {
 
 function openExplorer(path = "A:\\") {
   currentPath = normalizePath(path);
+  if (focusExistingWindow(`explorer:${currentPath.toLowerCase()}`)) return;
   document.getElementById("path-label").textContent = currentPath;
-  const { content } = createWindow(`Explorer - ${currentPath}`, { wide: true });
+  const { content } = createWindow(`Explorer - ${currentPath}`, { wide: true, appId: `explorer:${currentPath.toLowerCase()}` });
   renderExplorer(content, currentPath);
 }
 
@@ -480,11 +572,11 @@ function renderExplorer(content, path) {
   content.appendChild(bar);
 
   const address = bar.querySelector(".address");
-  bar.querySelector("[data-nav='back']").addEventListener("click", () => openExplorer("A:\\"));
-  bar.querySelector("[data-nav='up']").addEventListener("click", () => openExplorer(parentPath(path)));
-  bar.querySelector("[data-nav='go']").addEventListener("click", () => openExplorer(address.value));
+  bar.querySelector("[data-nav='back']").addEventListener("click", () => navigateExplorer(content, "A:\\"));
+  bar.querySelector("[data-nav='up']").addEventListener("click", () => navigateExplorer(content, parentPath(path)));
+  bar.querySelector("[data-nav='go']").addEventListener("click", () => navigateExplorer(content, address.value));
   address.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") openExplorer(address.value);
+    if (event.key === "Enter") navigateExplorer(content, address.value);
   });
 
   const list = document.createElement("div");
@@ -495,10 +587,29 @@ function renderExplorer(content, path) {
     row.type = "button";
     row.className = "file-row";
     row.innerHTML = `<span>${iconFor(entry.type)}</span><span>${entry.name}</span><span>${entry.type}</span><span>${entry.size || "--"}</span><span>${entry.modified || "--"}</span>`;
-    row.addEventListener("click", () => openEntry(entry));
+    row.addEventListener("click", () => openEntry(entry, content));
     list.appendChild(row);
   });
+  if (!entries.length) list.insertAdjacentHTML("beforeend", `<div class="empty-state">This folder is currently empty.</div>`);
   content.appendChild(list);
+}
+
+function navigateExplorer(content, path) {
+  const next = normalizePath(path);
+  currentPath = next;
+  document.getElementById("path-label").textContent = next;
+  const win = content.closest(".window");
+  if (win) {
+    const title = `Explorer - ${next}`;
+    win.querySelector(".window-title").textContent = title;
+    win.querySelector(".minimize")?.setAttribute("aria-label", `Minimize ${title}`);
+    win.querySelector(".maximize")?.setAttribute("aria-label", `Maximize ${title}`);
+    win.querySelector(".window-controls button:last-child")?.setAttribute("aria-label", `Close ${title}`);
+    win.dataset.appId = `explorer:${next.toLowerCase()}`;
+    const task = document.querySelector(`[data-window-task="${win.dataset.id}"]`);
+    if (task) task.textContent = title;
+  }
+  renderExplorer(content, next);
 }
 
 function getEntriesForPath(path) {
@@ -525,7 +636,7 @@ function getEntriesForPath(path) {
   if (p.endsWith("programs")) return APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app }));
   if (p.endsWith("community")) return [folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
   if (p.endsWith("community\\xp")) return [fileByName("MIND.exe"), { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }];
-  if (p.endsWith("team")) return [{ name: "TEAM_ACCESS_REQUIRED.txt", type: "Text", size: "protected", modified: "system", content: "A:\\Team exists in the live filesystem. Access is controlled by Supabase RLS and trusted admin/team claims.", tags: ["team", "protected"] }];
+  if (p.endsWith("team")) return TEAM_MEMBERS.map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person }));
   if (p.endsWith("wallpapers")) {
     return [
       ...WALLPAPERS.map((wallpaper) => ({ name: `${wallpaper.title}.theme`, type: "Theme", size: wallpaper.image ? "image" : wallpaper.color, modified: "system", wallpaper })),
@@ -533,7 +644,7 @@ function getEntriesForPath(path) {
     ];
   }
   if (p.endsWith("assets")) return FILES.filter((file) => file.type === "Image");
-  return [fileByName("README.txt")];
+  return [];
 }
 
 function folder(name, path) {
@@ -551,21 +662,23 @@ function fileByName(name) {
   return FILES.find((file) => file.name === name);
 }
 
-function openEntry(entry) {
-  if (entry.type === "Folder") openExplorer(entry.path);
+function openEntry(entry, explorerContent) {
+  if (entry.type === "Folder") explorerContent ? navigateExplorer(explorerContent, entry.path) : openExplorer(entry.path);
   if (entry.type === "Package") openPackage(entry.project);
   if (entry.type === "App") entry.app.action();
   if (entry.type === "Link") openPortal(entry.name.replace(".url", ""), entry.url, entry.detail || "External AWAKEN NETWORK link.");
   if (entry.type === "Image") openImage(entry);
   if (entry.type === "Text") openText(entry.name, entry.content);
   if (entry.type === "Theme") setWallpaper(entry.wallpaper);
+  if (entry.type === "Person") openTeamProfile(entry.person);
 }
 
 function openPackage(id) {
   const project = PROJECTS.find((item) => item.id === id);
   if (!project) return;
+  if (focusExistingWindow(`package:${id}`)) return;
   document.getElementById("path-label").textContent = project.path;
-  const { content } = createWindow(`${project.title} Drive`, { wide: true });
+  const { content } = createWindow(`${project.title} Drive`, { wide: true, appId: `package:${id}` });
   content.innerHTML = `
     <div class="cards">
       <article class="card">
@@ -580,6 +693,7 @@ function openPackage(id) {
       <section>
         <h2>${project.title}</h2>
         <p>${project.readme}</p>
+        ${contributorCreditsMarkup(project.contributors || [])}
         <div class="meta-grid">
           <div class="meta"><strong>Installed</strong><br>${project.installed}</div>
           <div class="meta"><strong>Size</strong><br>${project.size}</div>
@@ -589,52 +703,63 @@ function openPackage(id) {
         <div class="health" aria-label="Drive health"><span style="width:${project.health}%"></span></div>
         <h3>Contents</h3>
         <div class="explorer-list">
-          ${["README.txt", "Artwork", "Music", "Photos", "Links"].map((item) => `<div class="file-row"><span>${iconFor(item)}</span><span>${item}</span><span>Folder</span><span>--</span><span>${project.year}</span></div>`).join("")}
+          <button type="button" class="file-row" data-package-action="readme"><span>TXT</span><span>README.txt</span><span>Text</span><span>--</span><span>${project.year}</span></button>
+          <button type="button" class="file-row" data-package-action="artwork"><span>IMG</span><span>Artwork</span><span>Image</span><span>--</span><span>${project.year}</span></button>
+          <button type="button" class="file-row" data-package-action="music"><span>URL</span><span>Music</span><span>Link</span><span>${project.size}</span><span>${project.year}</span></button>
         </div>
       </section>
     </div>
   `;
-  content.querySelector("[data-open-link]").addEventListener("click", () => window.open(project.url, "_blank", "noopener"));
+  content.querySelector("[data-open-link]").addEventListener("click", () => window.open(project.url, "_blank", "noopener,noreferrer"));
   content.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: project.id, type: "archive", title: project.title, path: project.path, url: project.url }));
+  content.querySelector(".card img")?.addEventListener("error", (event) => { event.currentTarget.hidden = true; });
+  content.querySelector("[data-package-action='readme']").addEventListener("click", () => openText(`${project.title} README`, project.readme));
+  content.querySelector("[data-package-action='artwork']").addEventListener("click", () => openImage({ name: `${project.title} artwork`, src: project.cover, path: project.path }));
+  content.querySelector("[data-package-action='music']").addEventListener("click", () => window.open(project.url, "_blank", "noopener,noreferrer"));
+  content.querySelectorAll("[data-contributor]").forEach((button) => button.addEventListener("click", () => openTeamProfile(TEAM_MEMBERS.find((person) => person.slug === button.dataset.contributor))));
 }
 
 function openMusic() {
-  const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window" });
+  if (focusExistingWindow("media-player")) return;
+  const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
   const cleanup = renderMediaPlayer(content, { projects: PROJECTS, links: LINKS, audio: document.getElementById("audio-snippet") });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
 function openMind() {
-  const { win, content } = createWindow("MIND - XP CHANNEL", { wide: true, className: "mind-window" });
+  if (focusExistingWindow("mind")) return;
+  const { win, content } = createWindow("MIND - XP CHANNEL", { wide: true, className: "mind-window", appId: "mind" });
   const cleanup = renderMindApp(content, { repository: communityRepository, inviteUrl: LINKS.discord });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
 function openCommunity() {
-  const { content } = createWindow("Community", { wide: true });
+  if (focusExistingWindow("community")) return;
+  const { content } = createWindow("Community", { wide: true, appId: "community" });
   content.innerHTML = `
     <div class="portal-row">
-      <div><strong>Community channel open.</strong><small>Discord is the primary live community link until API/widget access is added.</small></div>
+      <div><strong>AWAKEN Community</strong><small>Enter MIND for the live XP feed or open the community in Discord.</small></div>
       <button type="button" data-mind>Open MIND</button>
       <button type="button" data-discord>Open Discord</button>
     </div>
     ${SOCIALS.slice(4, 8).map((item) => portalMarkup(item)).join("")}
   `;
   content.querySelector("[data-mind]").addEventListener("click", openMind);
-  content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener"));
+  content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener,noreferrer"));
   bindPortalButtons(content);
 }
 
 function openShop() {
-  const { win, content } = createWindow("AWAKEN Shop - In Development", { wide: true, className: "shop-window" });
+  if (focusExistingWindow("shop")) return;
+  const { win, content } = createWindow("AWAKEN Shop", { wide: true, className: "shop-window", appId: "shop" });
   content.innerHTML = `
     <div class="shop-screen" aria-label="AWAKEN Shop in development">
       <canvas class="pipes-canvas" aria-hidden="true"></canvas>
       <div class="shop-status">
         <img src="assets/img/awaken-logo.webp" alt="AWAKEN CULT" />
         <p>SHOP.EXE</p>
-        <strong>IN DEVELOPMENT</strong>
-        <small>Catalog connection pending.</small>
+        <strong>OFFLINE</strong>
+        <small>This application is inactive.</small>
       </div>
       <div class="shop-progress" aria-label="Development status"><span></span></div>
     </div>
@@ -730,7 +855,8 @@ function runPipes(canvas, win) {
 }
 
 function openLiveInternet() {
-  const { content } = createWindow("LIVE INTERNET", { wide: true });
+  if (focusExistingWindow("live-internet")) return;
+  const { content } = createWindow("LIVE INTERNET", { wide: true, appId: "live-internet" });
   content.innerHTML = SOCIALS.map((item) => portalMarkup(item)).join("");
   bindPortalButtons(content);
 }
@@ -741,12 +867,14 @@ function portalMarkup(item) {
 
 function bindPortalButtons(container) {
   container.querySelectorAll("[data-url]").forEach((button) => {
-    button.addEventListener("click", () => window.open(button.dataset.url, "_blank", "noopener"));
+    button.addEventListener("click", () => window.open(button.dataset.url, "_blank", "noopener,noreferrer"));
   });
 }
 
 function openPortal(title, url, detail) {
-  const { content } = createWindow(title);
+  const appId = `portal:${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  if (focusExistingWindow(appId)) return;
+  const { content } = createWindow(title, { appId });
   content.innerHTML = `
     <div class="portal-row">
       <div><strong>${title}</strong><small>${detail}</small></div>
@@ -770,6 +898,23 @@ function openImage(file) {
   content.querySelector("[data-save-image]")?.addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: media.id, type: "image", title: file.name, src: media.fullSource }));
 }
 
+function openTeamProfile(person) {
+  if (!person) return;
+  const appId = `team:${person.slug}`;
+  if (focusExistingWindow(appId)) return;
+  const { content } = createWindow(person.displayName, { appId });
+  content.innerHTML = `
+    <section class="team-profile">
+      <div class="team-avatar" aria-hidden="true">${escapeHtml(person.displayName.slice(0, 1))}</div>
+      <div>
+        <h2>${escapeHtml(person.displayName)}</h2>
+        <p>AWAKEN team member.</p>
+        <div class="empty-state">No additional profile details are available.</div>
+      </div>
+    </section>
+  `;
+}
+
 function saveExplicit(button, item) {
   memoryCard = saveMemoryCard(addMemoryItem(memoryCard, item));
   button.textContent = "Saved";
@@ -777,7 +922,8 @@ function saveExplicit(button, item) {
 }
 
 function openMemoryCard() {
-  const { content } = createWindow("Memory Card", { wide: true });
+  if (focusExistingWindow("memory-card")) return;
+  const { content } = createWindow("Memory Card", { wide: true, appId: "memory-card" });
   renderMemoryCard(content);
 }
 
@@ -834,7 +980,7 @@ function showTransmission(item) {
   panel.querySelector("[aria-label='Dismiss']").addEventListener("click", dismiss);
   panel.querySelector("[data-open]").addEventListener("click", () => {
     awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_ACTION, { id: item.id, action: "open", destinationUrl: item.destinationUrl });
-    window.open(item.destinationUrl, "_blank", "noopener");
+    window.open(item.destinationUrl, "_blank", "noopener,noreferrer");
   });
   panel.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: item.id, type: "transmission", title: item.publicTitle, url: item.destinationUrl }));
   layer.appendChild(panel);
@@ -846,36 +992,89 @@ function openText(title, text) {
 }
 
 function openSettings() {
-  const { content } = createWindow("Settings");
-  const current = getComputedStyle(document.documentElement).getPropertyValue("--wallpaper-color").trim();
+  if (focusExistingWindow("settings")) return;
+  const { content } = createWindow("Settings", { wide: true, appId: "settings" });
+  const selectedWallpaper = localStorage.getItem("awakenWallpaper") || "awaken-default";
+  const info = {
+    version: "4.2",
+    build: "2026.07.14",
+    browser: navigator.userAgent,
+    viewport: `${window.innerWidth} x ${window.innerHeight}`,
+    pixelRatio: window.devicePixelRatio || 1,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    online: navigator.onLine ? "Online" : "Offline",
+    localStorage: storageAvailable() ? "Available" : "Unavailable",
+    mind: supabaseClient.configured ? "Configured" : "Offline"
+  };
   content.innerHTML = `
-    <p><strong>System restored.</strong></p>
-    <p>Wallpaper color is controlled by <code>--wallpaper-color</code>. Current value: <code>${current}</code>.</p>
-    <div class="settings-row">
-      ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.id}">${wallpaper.title}</button>`).join("")}
-      <button type="button" data-reset>Show Boot Next Visit</button>
+    <div class="settings-sections">
+      <section><h2>Appearance</h2><div class="wallpaper-grid">
+        ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.id}" aria-pressed="${String(selectedWallpaper === wallpaper.id)}"><span style="--swatch:${wallpaper.color};--swatch-image:${wallpaper.image ? `url('${wallpaper.image}')` : "none"}"></span>${wallpaper.title}</button>`).join("")}
+      </div><div class="settings-row"><button type="button" data-default-wallpaper>Restore AWAKEN Default</button><label><input type="checkbox" data-reduced-motion ${localStorage.getItem("awaken.reducedMotion") === "true" ? "checked" : ""}> Reduced motion</label><label><input type="checkbox" data-sound ${localStorage.getItem("awaken.sound") !== "false" ? "checked" : ""}> System sounds</label></div></section>
+      <section><h2>Desktop</h2><div class="settings-row"><label><input type="checkbox" data-show-icons ${localStorage.getItem("awaken.showIcons") !== "false" ? "checked" : ""}> Show desktop icons</label><button type="button" data-reset-icons>Restore icon arrangement</button><button type="button" data-reset-boot>Show boot next visit</button></div></section>
+      <section><h2>System</h2><dl class="system-info">${Object.entries(info).map(([key, value]) => `<div><dt>${titleCase(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join("")}</dl></section>
+      <section><h2>Storage</h2><p>${memoryCard.items.length} saved Memory Card item${memoryCard.items.length === 1 ? "" : "s"}.</p><div class="settings-row"><button type="button" data-clear-preferences>Clear local preferences</button><button type="button" data-clear-memory>Clear Memory Card</button></div></section>
+      <section><h2>About</h2><p>AWAKEN NETWORK OS v4.2 connects the AWAKEN archive, community, music, tools, and saved references.</p><div class="settings-row"><button type="button" data-about-url="${LINKS.website}">Website</button><button type="button" data-about-url="${LINKS.youtube}">YouTube</button><button type="button" data-about-url="${LINKS.spotify}">Spotify</button></div></section>
     </div>
   `;
   content.querySelectorAll("[data-wallpaper]").forEach((button) => {
-    button.addEventListener("click", () => setWallpaper(WALLPAPERS.find((wallpaper) => wallpaper.id === button.dataset.wallpaper)));
+    button.addEventListener("click", () => {
+      setWallpaper(WALLPAPERS.find((wallpaper) => wallpaper.id === button.dataset.wallpaper));
+      content.querySelectorAll("[data-wallpaper]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+    });
   });
-  content.querySelector("[data-reset]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
+  content.querySelector("[data-default-wallpaper]").addEventListener("click", () => setWallpaper(WALLPAPERS[0]));
+  content.querySelector("[data-reduced-motion]").addEventListener("change", (event) => { localStorage.setItem("awaken.reducedMotion", String(event.target.checked)); applyPreferences(); });
+  content.querySelector("[data-sound]").addEventListener("change", (event) => localStorage.setItem("awaken.sound", String(event.target.checked)));
+  content.querySelector("[data-show-icons]").addEventListener("change", (event) => { localStorage.setItem("awaken.showIcons", String(event.target.checked)); applyPreferences(); });
+  content.querySelector("[data-reset-icons]").addEventListener("click", () => { localStorage.removeItem("awaken.iconOverrides"); buildDesktop(); });
+  content.querySelector("[data-reset-boot]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
+  content.querySelector("[data-clear-preferences]").addEventListener("click", () => {
+    if (!confirm("Clear local AWAKEN preferences?")) return;
+    ["awakenWallpaper", "awaken.reducedMotion", "awaken.sound", "awaken.showIcons", "awaken.iconOverrides"].forEach((key) => localStorage.removeItem(key));
+    applySavedWallpaper();
+    applyPreferences();
+  });
+  content.querySelector("[data-clear-memory]").addEventListener("click", () => {
+    if (!confirm("Clear every saved Memory Card item?")) return;
+    memoryCard = saveMemoryCard(emptyMemoryCard());
+    content.querySelector("[data-clear-memory]").textContent = "Memory Card cleared";
+  });
+  content.querySelectorAll("[data-about-url]").forEach((button) => button.addEventListener("click", () => window.open(button.dataset.aboutUrl, "_blank", "noopener,noreferrer")));
 }
 
 function setWallpaper(wallpaper) {
-  const next = typeof wallpaper === "string" ? { color: wallpaper } : wallpaper;
+  const next = typeof wallpaper === "string" ? WALLPAPERS.find((item) => item.id === wallpaper) || { color: wallpaper } : wallpaper;
   const color = next?.color || brandAssets.fallbackWallpaperColor;
   document.documentElement.style.setProperty("--wallpaper-color", color);
   document.documentElement.style.setProperty("--wallpaper-image", next?.image ? `url("${next.image}")` : "none");
   document.documentElement.style.setProperty("--wallpaper-size", next?.mode === "tile" ? "auto" : next?.mode || "cover");
   document.documentElement.style.setProperty("--wallpaper-repeat", next?.mode === "tile" ? "repeat" : "no-repeat");
-  localStorage.setItem("awakenWallpaper", JSON.stringify(next || { color }));
+  localStorage.setItem("awakenWallpaper", next?.id || "awaken-default");
 }
 
 function applySavedWallpaper() {
   const raw = localStorage.getItem("awakenWallpaper");
-  const saved = raw ? safeJson(raw) || { color: raw } : WALLPAPERS[0];
+  const legacy = raw ? safeJson(raw) : null;
+  const savedId = legacy?.id || (legacy ? null : raw);
+  const saved = WALLPAPERS.find((wallpaper) => wallpaper.id === savedId) || (legacy?.color ? legacy : WALLPAPERS[0]);
   setWallpaper(saved);
+}
+
+function applyPreferences() {
+  document.documentElement.dataset.reducedMotion = String(localStorage.getItem("awaken.reducedMotion") === "true");
+  document.getElementById("desktop-icons").hidden = localStorage.getItem("awaken.showIcons") === "false";
+}
+
+function storageAvailable() {
+  try {
+    localStorage.setItem("awaken.storageTest", "1");
+    localStorage.removeItem("awaken.storageTest");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function safeJson(value) {
@@ -887,13 +1086,13 @@ function safeJson(value) {
 }
 
 function openTerminal(prefill = "") {
-  const { win, content } = createWindow("Terminal", { className: "terminal" });
-  content.innerHTML = `<div class="terminal-output"></div><div class="terminal-input"><span>${terminalPath}&gt;</span><input aria-label="Terminal command" value="${prefill}" /></div>`;
+  if (focusExistingWindow("terminal")) return;
+  const initialValue = typeof prefill === "string" ? prefill : "";
+  const { content } = createWindow("Terminal", { className: "terminal", appId: "terminal" });
+  content.innerHTML = `<div class="terminal-output"></div><div class="terminal-input"><span>${terminalPath}&gt;</span><input aria-label="Terminal command" value="${escapeHtml(initialValue)}" autocomplete="off" /></div>`;
   const output = content.querySelector(".terminal-output");
   const input = content.querySelector("input");
   print(output, ["AWAKEN NETWORK terminal", "Type help for commands."]);
-  input.focus();
-  win.addEventListener("click", () => input.focus());
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     const command = input.value.trim();
@@ -918,10 +1117,10 @@ function runCommand(command, output) {
   else if (lower === "find") searchAll(arg).slice(0, 12).forEach((item) => print(output, [`${item.kind}: ${item.title}`]));
   else if (lower === "type" && arg.toLowerCase() === "readme") print(output, [fileByName("README.txt").content]);
   else if (lower === "scan") print(output, ["3 live tools detected.", "7 catalog packages indexed.", "9 public network links verified."]);
-  else if (lower === "recover") print(output, ["Recovered archive.", "Package incomplete.", "Signal stable."]);
+  else if (lower === "recover") print(output, ["Recovered archive.", "Package incomplete.", "Network stable."]);
   else if (lower === "whoami") print(output, ["visitor / public"]);
   else if (lower === "version") print(output, ["AWAKEN OS v4.2 static frontend"]);
-  else if (lower === "discord") window.open(LINKS.discord, "_blank", "noopener");
+  else if (lower === "discord") window.open(LINKS.discord, "_blank", "noopener,noreferrer");
   else print(output, [`Unknown command: ${command}`]);
   output.scrollTop = output.scrollHeight;
 }
@@ -969,6 +1168,82 @@ function searchAll(term) {
   return results;
 }
 
+function iconSource(manifest) {
+  const overrides = safeJson(localStorage.getItem("awaken.iconOverrides") || "{}") || {};
+  const remote = overrides[manifest.applicationId] || manifest.remoteIconUrl;
+  if (remote && validRemoteImageUrl(remote)) return remote;
+  return manifest.imageSource || "";
+}
+
+function validRemoteImageUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function bindDesktopContextMenu() {
+  workArea.addEventListener("contextmenu", (event) => {
+    if (event.target.closest(".window, input, textarea, [contenteditable='true'], .desktop-icon")) return;
+    showContextMenu(event, "desktop");
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".awaken-context-menu")) closeContextMenu();
+  });
+}
+
+function showContextMenu(event, type, target) {
+  event.preventDefault();
+  event.stopPropagation();
+  closeContextMenu();
+  const menu = document.createElement("div");
+  menu.className = "awaken-context-menu";
+  menu.setAttribute("role", "menu");
+  const actions = contextActions(type, target);
+  actions.forEach(({ label, action }) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "menuitem");
+    button.textContent = label;
+    button.addEventListener("click", () => { closeContextMenu(); action(); });
+    menu.appendChild(button);
+  });
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(4, Math.min(event.clientX, window.innerWidth - rect.width - 4))}px`;
+  menu.style.top = `${Math.max(4, Math.min(event.clientY, window.innerHeight - rect.height - 4))}px`;
+  contextMenu = menu;
+  menu.querySelector("button")?.focus();
+}
+
+function contextActions(type, target) {
+  if (type === "icon") return [
+    { label: "Open", action: () => target.action() },
+    { label: "Properties", action: () => openText(`${target.title} Properties`, `${target.title}\nType: ${target.kind}\nApplication ID: ${target.id}`) }
+  ];
+  if (type === "window") return [
+    ...(target.hidden ? [{ label: "Restore", action: () => restoreWindow(target) }] : []),
+    ...(!target.hidden ? [{ label: "Minimize", action: () => minimizeWindow(target) }] : []),
+    { label: target.dataset.maximized === "true" ? "Restore Size" : "Maximize", action: () => toggleMaximize(target) },
+    { label: "Close", action: () => target.querySelector(".window-controls button:last-child")?.click() }
+  ];
+  return [
+    { label: "Open Archive", action: () => openExplorer("A:\\Archive") },
+    { label: "Refresh Desktop", action: buildDesktop },
+    { label: "Arrange Icons", action: buildDesktop },
+    { label: "Settings", action: openSettings },
+    { label: "Change Wallpaper", action: openSettings },
+    { label: "About AWAKEN", action: () => openText("About AWAKEN", "AWAKEN NETWORK OS v4.2\nArchive, community, music, tools, and saved references.") }
+  ];
+}
+
+function closeContextMenu() {
+  contextMenu?.remove();
+  contextMenu = null;
+}
+
 function normalizePath(path) {
   if (!path) return "A:\\";
   let next = path.replace(/\//g, "\\").trim();
@@ -993,11 +1268,16 @@ function iconFor(type) {
   if (key.includes("app")) return "EXE";
   if (key.includes("theme")) return "THM";
   if (key.includes("text") || key.includes("readme")) return "TXT";
+  if (key.includes("person")) return "USR";
   return "FILE";
 }
 
 function escapeHtml(text) {
-  return text.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+  return String(text ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+}
+
+function titleCase(value) {
+  return String(value).replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 window.addEventListener("DOMContentLoaded", init);

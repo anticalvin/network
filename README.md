@@ -19,7 +19,7 @@ AWAKEN NETWORK is an OS-style shell for AWAKEN CULT's real ecosystem: archive pr
 - Phone-friendly content editor at `/admin.html` for local editorial preview.
 - Shop app with a Windows 3D Pipes-inspired in-development screen.
 - Supabase migrations with structured content, media, virtual filesystem, campaigns, Discord XP mirror tables, storage buckets, Realtime publication setup, and RLS.
-- MIND desktop app that reads the approved XP channel mirror and falls back when Supabase is unavailable.
+- MIND desktop app with a bounded initial XP fetch, Supabase Realtime updates, reconnect reconciliation, deduplication, and deliberate loading/offline/error states.
 - MIND Discord bot bridge foundation for server-side #xp mirroring.
 - AWAKEN Media Player with canvas visualizer, local signal playback, and external Apple Music/SoundCloud links.
 - Rerunnable tweet-export importer that produces an unpublished editorial review queue.
@@ -58,11 +58,7 @@ Edit `styles.css`:
 - `--wallpaper-color` for runtime wallpaper state.
 - `--wallpaper-image` for runtime image wallpapers.
 
-For local Supabase browser testing, set the public key at runtime without committing it:
-
-```js
-localStorage.setItem("awaken.supabaseAnonKey", "your_public_or_anon_key");
-```
+The static frontend uses the project's public publishable key from `config.js`. This key is designed for browser use and remains constrained by RLS. The server-only key must stay on the MIND bot host.
 
 ## Verification
 

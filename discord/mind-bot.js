@@ -53,7 +53,9 @@ client.once("ready", async () => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot || message.channelId !== config.xpChannelId) return;
-  bridge.mirrorCreate(message).catch((error) => console.error("MIND bridge create failed:", error.message));
+  bridge.mirrorCreate(message)
+    .then((result) => { if (!result?.skipped) console.info("MIND bridge stored message", { messageId: message.id, channelId: message.channelId }); })
+    .catch((error) => console.error("MIND bridge create failed", { messageId: message.id, status: error.status || null, message: error.message }));
 
   const isStatus = message.content.trim().toLowerCase() === "!mind status";
   const isMentioned = message.mentions.has(client.user);
@@ -66,12 +68,17 @@ client.on("messageCreate", async (message) => {
   await message.reply("MIND is online and connected to AWAKEN NETWORK.");
 });
 
-client.on("messageUpdate", (_oldMessage, newMessage) => {
-  bridge.mirrorUpdate(newMessage).catch((error) => console.error("MIND bridge update failed:", error.message));
+client.on("messageUpdate", async (_oldMessage, newMessage) => {
+  const message = newMessage.partial ? await newMessage.fetch().catch(() => newMessage) : newMessage;
+  bridge.mirrorUpdate(message)
+    .then((result) => { if (!result?.skipped) console.info("MIND bridge updated message", { messageId: message.id }); })
+    .catch((error) => console.error("MIND bridge update failed", { messageId: message.id, status: error.status || null, message: error.message }));
 });
 
 client.on("messageDelete", (message) => {
-  bridge.mirrorDelete(message).catch((error) => console.error("MIND bridge delete failed:", error.message));
+  bridge.mirrorDelete(message)
+    .then((result) => { if (!result?.skipped) console.info("MIND bridge removed message", { messageId: message.id }); })
+    .catch((error) => console.error("MIND bridge delete failed", { messageId: message.id, status: error.status || null, message: error.message }));
 });
 
 client.on("error", (error) => {

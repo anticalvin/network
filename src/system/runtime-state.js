@@ -2,7 +2,7 @@ export function getRuntimeConfig() {
   const config = globalThis.AWAKEN_CONFIG || {};
   return {
     ...config,
-    supabaseConfigured: Boolean(config.supabaseUrl && config.supabaseAnonKey),
+    supabaseConfigured: Boolean(config.supabaseUrl && (config.supabasePublishableKey || config.supabaseAnonKey)),
     discord: config.discord || {}
   };
 }

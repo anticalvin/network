@@ -224,10 +224,16 @@ button {
 .start-dot {
   width: 14px;
   height: 14px;
-  display: inline-block;
-  background: var(--awaken-red);
-  border: 2px solid #fff;
-  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.start-dot img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .task-buttons {
@@ -375,6 +381,11 @@ button {
   background: #f7f8fc;
   border: 1px solid #09246d;
   box-shadow: var(--shadow);
+}
+
+.window[hidden],
+.desktop-icons[hidden] {
+  display: none !important;
 }
 
 .window.active {
@@ -603,6 +614,73 @@ button {
   margin-top: 10px;
 }
 
+.settings-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-sections section {
+  border-bottom: 1px solid #c0c7d3;
+  padding-bottom: 14px;
+}
+
+.settings-sections h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.wallpaper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 7px;
+}
+
+.wallpaper-grid button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+}
+
+.wallpaper-grid button[aria-pressed="true"] {
+  outline: 2px solid #245edb;
+}
+
+.wallpaper-grid span {
+  width: 28px;
+  height: 22px;
+  background-color: var(--swatch);
+  background-image: var(--swatch-image);
+  background-size: cover;
+  border: 1px solid #303846;
+}
+
+.system-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: #b7bfce;
+  border: 1px solid #b7bfce;
+}
+
+.system-info div {
+  min-width: 0;
+  padding: 7px;
+  background: #fff;
+}
+
+.system-info dt {
+  font-weight: 700;
+}
+
+.system-info dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #4e5868;
+}
+
 .viewer-image {
   width: 100%;
   max-height: 360px;
@@ -676,6 +754,12 @@ button {
   width: 37%;
   height: 100%;
   background: repeating-linear-gradient(90deg, #1859c8 0 12px, transparent 12px 14px);
+  animation: shop-marquee 1.4s linear infinite alternate;
+}
+
+@keyframes shop-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(170%); }
 }
 
 .memory-row {
@@ -787,16 +871,39 @@ button {
   background: #f7f7ef;
 }
 
+.mind-notice {
+  padding: 7px 9px;
+  color: #5d4300;
+  background: #fff0b5;
+  border-bottom: 1px solid #d1b452;
+}
+
 .mind-message {
   padding: 7px 9px;
   border-bottom: 1px solid #c7c7bd;
 }
 
-.mind-message div {
+.mind-message-head {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
   font-size: 12px;
+}
+
+.mind-message-head time {
+  margin-left: auto;
+}
+
+.mind-message-head img,
+.mind-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  background: #d8dce5;
+  border: 1px solid #9098a7;
 }
 
 .mind-message time {
@@ -811,6 +918,65 @@ button {
 .mind-message.system {
   color: #fff;
   background: #1d1d1d;
+}
+
+.mind-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.mind-attachments img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border: 1px solid #8f96a2;
+}
+
+.team-profile {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.team-avatar {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  background: #245edb;
+  border: 2px inset #fff;
+}
+
+.awaken-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 170px;
+  padding: 3px;
+  color: #111;
+  background: #f3f3ed;
+  border: 1px solid #263b67;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, .35);
+}
+
+.awaken-context-menu button {
+  width: 100%;
+  display: block;
+  padding: 6px 10px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.awaken-context-menu button:hover,
+.awaken-context-menu button:focus-visible {
+  color: #fff;
+  background: #245edb;
 }
 
 .media-player {
@@ -894,6 +1060,13 @@ button {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
 }
 
 @media (max-width: 760px) {

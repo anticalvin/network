@@ -12,6 +12,11 @@ import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
 import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
 import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js";
+import { atlasSeed } from "./src/content/atlas-seed.js";
+import { atlasGraph, filterPublicAtlasBundle } from "./src/domain/atlas.js";
+import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
+import { AtlasRepository } from "./src/data/atlas-repository.js";
+import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -220,6 +225,9 @@ let memoryCard = emptyMemoryCard();
 const repository = new ContentRepository();
 const supabaseClient = createSupabaseRestClient();
 const communityRepository = new CommunityRepository({ adapter: new SupabaseCommunityAdapter(supabaseClient) });
+const atlasRepository = new AtlasRepository({ adapter: new SupabaseAtlasAdapter(supabaseClient), fallback: atlasSeed });
+let PUBLIC_ATLAS = filterPublicAtlasBundle(atlasSeed);
+void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
 const sessionDisplays = {};
 let bootFinished = false;
 let clockTimer = 0;
@@ -390,7 +398,9 @@ function createWindow(title, options = {}) {
   win.className = "window";
   win.dataset.id = `window-${++windowCount}`;
   if (options.appId) win.dataset.appId = options.appId;
-  win.style.left = `${70 + (windowCount % 5) * 28}px`;
+  const requestedLeft = 70 + (windowCount % 5) * 28;
+  const expectedWidth = Math.min(options.wide ? 860 : 720, Math.max(320, window.innerWidth - 36));
+  win.style.left = `${Math.max(0, Math.min(requestedLeft, window.innerWidth - expectedWidth - 8))}px`;
   win.style.top = `${44 + (windowCount % 5) * 22}px`;
   win.style.zIndex = ++highestZ;
   if (options.wide) win.style.width = "min(860px, calc(100vw - 36px))";
@@ -617,6 +627,7 @@ function getEntriesForPath(path) {
   if (p === "a:\\" || p === "a:") {
     return [
       folder("Archive", "A:\\Archive"),
+      folder("Atlas", "A:\\Atlas"),
       folder("Packages", "A:\\Packages"),
       folder("Programs", "A:\\Programs"),
       folder("Community", "A:\\Community"),
@@ -625,6 +636,7 @@ function getEntriesForPath(path) {
       fileByName("README.txt")
     ];
   }
+  if (p === "a:\\atlas" || p.startsWith("a:\\atlas\\")) return atlasEntriesForPath(path, PUBLIC_ATLAS);
   if (p.includes("archive\\2019")) return packageEntries(["xp", "hated"]);
   if (p.includes("archive\\2021")) return packageEntries(["xpv2", "new-swag"]);
   if (p.includes("archive\\2022")) return packageEntries(["central-african-time", "state-of-mind"]);
@@ -671,6 +683,27 @@ function openEntry(entry, explorerContent) {
   if (entry.type === "Text") openText(entry.name, entry.content);
   if (entry.type === "Theme") setWallpaper(entry.wallpaper);
   if (entry.type === "Person") openTeamProfile(entry.person);
+  if (entry.type === "Atlas Entity") openAtlasEntity(entry.atlasEntity);
+}
+
+function openAtlasEntity(entity) {
+  if (!entity || focusExistingWindow(`atlas:${entity.id}`)) return;
+  const graph = atlasGraph(entity.id, PUBLIC_ATLAS);
+  const related = graph.related.length
+    ? `<ul>${graph.related.map((item) => `<li>${escapeHtml(item.name)} <small>${escapeHtml(item.entityType)}</small></li>`).join("")}</ul>`
+    : `<p class="empty-state">No public relationships are available.</p>`;
+  const externalUrl = entity.metadata?.officialUrl || entity.metadata?.url;
+  const { content } = createWindow(`Atlas - ${entity.name}`, { wide: true, appId: `atlas:${entity.id}` });
+  content.innerHTML = `
+    <section class="atlas-profile">
+      <p class="eyebrow">${escapeHtml(entity.entityType.replaceAll("_", " "))}</p>
+      <h2>${escapeHtml(entity.name)}</h2>
+      ${entity.summary ? `<p>${escapeHtml(entity.summary)}</p>` : ""}
+      <dl class="meta-grid"><div class="meta"><dt>Verification</dt><dd>${escapeHtml(entity.verificationState.replaceAll("_", " "))}</dd></div><div class="meta"><dt>Confidence</dt><dd>${Math.round(entity.confidence * 100)}%</dd></div></dl>
+      ${externalUrl ? `<button type="button" data-atlas-source>Open official source</button>` : ""}
+      <h3>Related</h3>${related}
+    </section>`;
+  content.querySelector("[data-atlas-source]")?.addEventListener("click", () => window.open(externalUrl, "_blank", "noopener,noreferrer"));
 }
 
 function openPackage(id) {

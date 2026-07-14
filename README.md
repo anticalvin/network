@@ -4,6 +4,8 @@ Static HTML/CSS/JavaScript application shell for `awakencult.com`.
 
 AWAKEN NETWORK is an OS-style shell for AWAKEN CULT's real ecosystem: archive projects, music catalog links, community, VZN, NOISE, SoundCloud, social links, and future Supabase-powered content.
 
+AWAKEN Atlas now provides the fail-closed canonical knowledge layer beneath Explorer, the existing admin, Supabase, and generated public SEO routes. See `docs/ATLAS.md` for publication rules and initial private review records.
+
 ## Current Build
 
 - Supplied AWAKEN BIOS, startup, guest login, and ads pages under `awaken-system/`.

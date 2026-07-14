@@ -15,6 +15,8 @@ Applied migrations:
 - `202607140001_network_stabilization` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
 - `202607140002_network_stabilization_policy_tuning` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
 - `202607140003_network_stabilization_indexes` was applied to project `gnfxhelagmcferkqpngr` on 2026-07-14.
+- `202607140004_atlas_seo_foundation` was applied on 2026-07-14 and adds the Atlas graph, fail-closed public policies, corrected private seeds, and contributor-name corrections.
+- `202607140005_atlas_privilege_hardening` was applied on 2026-07-14 and revokes anonymous Atlas writes explicitly while adding creator foreign-key indexes.
 
 The live database had no recorded migration history before this update, so the original `content_items`, `media`, `content_media`, `transmission_rules`, `import_sources`, `content_sources`, and `content_revisions` schema is treated as the unregistered baseline. Keep `supabase/migrations/202607110001_transmission_update.sql` for fresh/local project rebuilds, and keep `supabase/migrations/202607130001_live_parallel_system.sql` as the additive live-system migration.
 
@@ -43,4 +45,4 @@ npm run import:tweets -- /path/to/export.json tweet-review-queue.json
 
 The output preserves IDs, timestamps, source type, raw provenance, media, and outbound links; removes exact/near text duplicates; marks every item `review`; and never publishes. Review and transform selected records into sourced content manually or through a future authenticated importer.
 
-Run checks with `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build`. Preview with `npm run serve`, then test `/` for the supplied BIOS/startup/login sequence, `/?skipBoot=1` for direct development access, and `/admin.html` for the editor.
+Run checks with `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build`. The build regenerates crawlable pages, `robots.txt`, and `sitemap.xml` from approved Atlas data. Preview with `npm run serve`, then test `/` for the supplied BIOS/startup/login sequence, `/?skipBoot=1` for direct development access, `/about/` and `/music/` for public knowledge pages, and `/admin.html` for the editor.

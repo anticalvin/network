@@ -21,6 +21,7 @@ button, a { min-height: 42px; }
 .field input, .field textarea, .field select { width: 100%; min-height: 44px; padding: 9px; background: #fff; border: 1px solid #969daa; }
 .field textarea { min-height: 92px; resize: vertical; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.field-wide { grid-column: 1 / -1; }
 .form-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; background: var(--paper); }
 .danger { color: #9b1711; background: #fff; border: 1px solid #b72b24; }
 .warning { padding: 9px; color: #6a4600; background: #fff5d4; border: 1px solid #d8b750; }

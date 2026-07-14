@@ -112,6 +112,8 @@ button {
   font-size: 12px;
 }
 
+.topbar h1 { margin: 0; font-size: 13px; letter-spacing: 0; }
+
 #path-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -423,9 +425,14 @@ button {
   padding: 0;
   color: #fff;
   font-weight: 700;
-  background: linear-gradient(#ff9b8c, #d51b12);
-  border: 1px solid #7d0b05;
+  background: linear-gradient(#86b7ff, #245edb);
+  border: 1px solid #123a91;
   border-radius: 3px;
+}
+
+.window-controls button:last-child {
+  background: linear-gradient(#ff9b8c, #d51b12);
+  border-color: #7d0b05;
 }
 
 .window-controls .minimize {
@@ -941,6 +948,11 @@ button {
   align-items: start;
 }
 
+.atlas-profile { max-width: 680px; }
+.atlas-profile .eyebrow { margin-bottom: 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.atlas-profile h2 { margin-top: 0; }
+.atlas-profile li { margin-bottom: 6px; }
+
 .team-avatar {
   width: 72px;
   height: 72px;
@@ -1079,7 +1091,7 @@ html[data-reduced-motion="true"] *::after {
     grid-template-columns: 1fr auto;
   }
 
-  .topbar strong,
+  .topbar h1,
   .signal {
     display: none;
   }

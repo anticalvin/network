@@ -1,10 +1,10 @@
 export const TEAM_MEMBERS = Object.freeze([
+  { id: "anticalvin", slug: "anticalvin", displayName: "anticalvin" },
+  { id: "hannahlleila", slug: "hannahlleila", displayName: "hannahlleila" },
   { id: "josh-otis", slug: "josh-otis", displayName: "Josh Otis" },
-  { id: "anti-colvin", slug: "anti-colvin", displayName: "Anti-Colvin" },
   { id: "htl", slug: "htl", displayName: "HTL" },
-  { id: "nashay", slug: "nashay", displayName: "Nashay" },
-  { id: "typhoon", slug: "typhoon", displayName: "Typhoon" },
-  { id: "digital", slug: "digital", displayName: "Digital" }
+  { id: "nashe", slug: "nashe", displayName: "Na$he" },
+  { id: "typhoon", slug: "typhoon", displayName: "Typhoon" }
 ]);
 
 export function contributorCreditsMarkup(contributors = []) {

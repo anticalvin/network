@@ -1,0 +1,226 @@
+{
+  "task_name": "NETWORK Runtime Integration Update — AWAKEN Runtime Events + Media Player v2",
+  "repository": "anticalvin/network",
+  "base_branch": "main",
+  "implementation_mode": "Targeted integration on the existing near-finished system. Do not rewrite the shell, window manager, Supabase repositories, Atlas, MIND, Memory Card, admin, virtual filesystem, or boot flow.",
+  "project_context": {
+    "existing_systems": [
+      "BIOS, startup and guest login flow",
+      "shared window manager",
+      "versioned local Memory Card",
+      "Supabase content, community and filesystem repositories",
+      "MIND live Discord mirror",
+      "AWAKEN Atlas and contributor records",
+      "media player",
+      "admin panel",
+      "Discord bridge",
+      "event bus, runtime state and scheduling domain",
+      "automated tests"
+    ],
+    "principle": "Wire the existing systems together and deepen the XP interaction model while preserving the approved AWAKEN identity."
+  },
+  "inherit_previous_stabilization_work": [
+    "clean post-boot desktop with no automatically opened app windows",
+    "working minimize, restore, focus, maximize and close behavior",
+    "Discord to Supabase to MIND initial fetch, Realtime and reconciliation",
+    "Archive opening and intentional empty states",
+    "terminal PointerEvent fix",
+    "admin access documentation and security",
+    "public copy cleanup",
+    "Community opening MIND as a separate app above it",
+    "Team and contributor records",
+    "persistent selected wallpaper without changing the current AWAKEN Default",
+    "configurable remote icon overrides with bundled fallbacks",
+    "desktop context menus",
+    "accurate clock and honest progress indicators"
+  ],
+  "new_programs": {
+    "awaken_runtime_events": {
+      "display_name": "AWAKEN Runtime Events",
+      "source": "awaken-system/ads.js",
+      "purpose": "Promote the existing popup ad and intrusion work from an isolated demo into a controlled, stateful content-delivery system inside the real OS runtime.",
+      "current_problem": "ads.js already contains security warnings, messenger toasts, dial-up, installer and Memory Card events, but it is not loaded by the main shell and its actions only replace popup copy.",
+      "requirements": [
+        "Load the existing ad definitions through the main shell using the repository's current module conventions. Do not duplicate them into script.js.",
+        "Create one runtime-event controller that owns eligibility, scheduling, session limits, cooldowns, weights, active dates and global disable state.",
+        "Use src/system/event-bus.js, runtime-state.js and src/domain/scheduling.js where those abstractions fit.",
+        "Do not spawn any popup during BIOS, startup, login or immediately after the desktop first appears.",
+        "Automatic events require a deliberate user interaction followed by a configurable quiet period.",
+        "Allow complete disabling in Settings and through authorized admin configuration.",
+        "Limit concurrent windows, persist dismissals and frequency state locally, and respect reduced motion and sound settings.",
+        "Every event must be dismissible and must never trap focus or block the entire website.",
+        "Keep AWAKEN branding visible so these are clearly fictional in-world system events rather than deceptive real antivirus, browser or credential prompts.",
+        "Add a rare intrusion sequence only through an explicit terminal command, admin preview or tightly limited approved campaign.",
+        "The intrusion sequence must be cancellable and restore all filters, windows, focus and audio state when it ends."
+      ],
+      "system_connections": {
+        "memory_card": [
+          "RECOVER must create real Memory Card entries through src/domain/memory-card.js or its current public service.",
+          "Use canonical fragment/content references rather than a fake counter.",
+          "Dispatch a shared domain event so the Memory Card UI updates immediately.",
+          "Make repeated recovery idempotent."
+        ],
+        "mind": [
+          "Messenger events may use a recent eligible public MIND record.",
+          "Never expose private Discord channels or unapproved member data.",
+          "Fall back to approved static AWAKEN copy when no eligible MIND record exists.",
+          "OPEN MESSAGE should open MIND or the corresponding public record."
+        ],
+        "terminal": [
+          "scan triggers a safe themed scan and optionally one eligible runtime event.",
+          "recover invokes the same Memory Card recovery service as the popup.",
+          "whoami reads actual runtime/user state.",
+          "Commands must call shared services instead of duplicating effects."
+        ],
+        "admin": [
+          "Add a Runtime Events section to the existing admin interface.",
+          "Authorized editors may enable events and edit weight, cooldown, maximum impressions and active dates.",
+          "Reuse managed content and scheduling repositories.",
+          "Anonymous users remain read-only and cannot alter event configuration.",
+          "Keep a local preview path while production publishing remains locked."
+        ],
+        "boot_handoff": [
+          "BIOS/startup/login may write a small runtime handoff object.",
+          "Any boot message claiming a recovered fragment must correspond to a real seeded or queued Memory Card entry.",
+          "Boot must not depend on Supabase availability."
+        ]
+      },
+      "xp_authenticity_pass": [
+        "Audit active and inactive titlebar gradients, inner highlights, bevels and text shadow rather than replacing working chrome blindly.",
+        "Taskbar buttons should use icon plus ellipsized title and an inset pressed state for the active window.",
+        "Support titlebar double-click maximize and restore.",
+        "Strengthen desktop icon label outline or shadow across every wallpaper.",
+        "Route startup, notify, error and taskbar sounds through one sound service with mute controls.",
+        "Complete desktop, icon and window context menus using only actions that genuinely work.",
+        "Do not replace the approved AWAKEN eye Start icon with a Windows flag."
+      ],
+      "acceptance_tests": [
+        "ads.js is loaded by the real runtime without duplicate definitions",
+        "no popup appears during boot or initial desktop arrival",
+        "limits and cooldowns survive refresh",
+        "RECOVER writes actual Memory Card records exactly once",
+        "MIND-derived events only use approved public data",
+        "scan and recover use shared services",
+        "admin preview can enable, disable and test an event",
+        "the intrusion preview fully restores the desktop",
+        "events are keyboard accessible and dismissible"
+      ]
+    },
+    "awaken_media_player_v2": {
+      "display_name": "AWAKEN Media Player v2",
+      "prototype_reference": "Use the supplied standalone AWAKEN XP Media Player HTML as a behavior and layout reference, not as an iframe final implementation.",
+      "purpose": "Turn the standalone prototype into a real managed desktop application connected to Atlas, approved media records, the A:\\ filesystem and official platform destinations.",
+      "prototype_features_to_preserve": [
+        "XP-style player shell",
+        "local browser audio playback",
+        "Web Audio analyser",
+        "spectrum, oscilloscope and bars with peaks",
+        "10-band biquad EQ with presets",
+        "playlist, previous, play, pause, stop and next",
+        "seek, time and volume controls",
+        "verified release cards",
+        "Apple Music, SoundCloud and Spotify embeds"
+      ],
+      "requirements": [
+        "Integrate the player into the current application registry, window manager, taskbar, icons and shared styles.",
+        "Do not iframe the standalone demo as the final application.",
+        "Keep local files in the browser; never upload them automatically.",
+        "Read public release data from Atlas/content/media repositories where available instead of creating conflicting hardcoded catalogs.",
+        "Only approved, public and verified records may appear in the release library.",
+        "Centralize Apple Music, SoundCloud, Spotify and YouTube URLs.",
+        "Add the official AWAKEN YouTube destination and approved video or playlist opening.",
+        "Replace dead Signal and Bars controls with real destinations or remove them.",
+        "Explain clearly that protected provider embeds cannot feed the custom EQ or analyser.",
+        "Allow AWAKEN-hosted or Supabase Storage audio to use the analyser only when publication state and CORS permit.",
+        "Open compatible files from the virtual A:\\ filesystem through Explorer and terminal open commands.",
+        "Persist safe preferences such as volume, EQ enabled state, preset and visualization mode locally.",
+        "Do not autoplay provider streams when the app opens.",
+        "Avoid duplicate AudioContext instances when minimizing and restoring.",
+        "Closing must stop playback, cancel animation frames and release local object URLs.",
+        "Render filenames, URLs and external metadata without unsafe innerHTML.",
+        "Validate provider URLs before embedding or opening them.",
+        "Provide keyboard controls, visible focus and accessible labels.",
+        "Keep mobile controls usable without page overflow."
+      ],
+      "library_sections": [
+        "Now Playing",
+        "AWAKEN Library",
+        "Local Files",
+        "Playlists",
+        "Apple Music",
+        "SoundCloud",
+        "Spotify",
+        "YouTube"
+      ],
+      "data_guidance": [
+        "Reuse Atlas entities, source links, media links and contributor credits.",
+        "A playable source should contain provider, canonical URL, safe embed URL where supported, media type, publication state, duration and artwork.",
+        "Local tracks remain outside Supabase unless a later explicit upload workflow is approved."
+      ],
+      "acceptance_tests": [
+        "the player opens, focuses, minimizes and restores as a normal managed window",
+        "local MP3, WAV and OGG playback works without upload",
+        "EQ, visualizer, seek and playlist work",
+        "verified releases render from the canonical repository",
+        "Apple Music, SoundCloud and Spotify URL validation works",
+        "YouTube destination works",
+        "unsupported links fail cleanly",
+        "Explorer opens compatible media files in the player",
+        "closing releases audio resources and object URLs",
+        "user-controlled metadata is rendered safely",
+        "mobile layout has no clipped controls or document overflow"
+      ]
+    }
+  },
+  "deferred": [
+    "automatic SoundCloud publishing",
+    "full Discord collaborative music program",
+    "multiplayer cursors",
+    "Notepad and Paint production builds",
+    "My Network Places",
+    "global search assistant",
+    "automatic ads on first load"
+  ],
+  "implementation_order": [
+    "audit the current main branch after the Atlas merge",
+    "run and preserve the existing test baseline",
+    "integrate Media Player v2 with the current repositories and window manager",
+    "create the shared runtime-event controller and load existing ads.js definitions",
+    "connect RECOVER to Memory Card",
+    "connect approved MIND content",
+    "connect terminal commands",
+    "add admin runtime-event controls",
+    "apply the scoped XP authenticity pass",
+    "run desktop, mobile, accessibility, security and regression verification"
+  ],
+  "required_documentation": [
+    "docs/RUNTIME_EVENTS.md",
+    "docs/MEDIA_PLAYER.md",
+    "update docs/ARCHITECTURE.md",
+    "update docs/ADMIN_ACCESS.md",
+    "document provider-link configuration",
+    "document event limits, scheduling, persistence and admin controls"
+  ],
+  "required_verification": [
+    "npm test",
+    "npm run lint",
+    "npm run typecheck",
+    "npm run build",
+    "desktop browser workflow",
+    "390x844 mobile workflow",
+    "keyboard-only workflow",
+    "reduced-motion and muted-sound workflow",
+    "security review for unsafe HTML, external URLs, Supabase RLS and secrets",
+    "confirm no automatic popup appears during boot or initial desktop arrival"
+  ],
+  "final_report": [
+    "architecture findings",
+    "files changed",
+    "runtime-event integration",
+    "Memory Card, MIND, terminal and admin connections",
+    "Media Player integration and provider configuration",
+    "tests and browser verification",
+    "known limitations",
+    "manual production values still required"
+  ]
+}

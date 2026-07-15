@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "lint": "node --check script.js && node --check admin/admin.js && node --check discord/mind-bot.js && node --check discord/mind-supabase-bridge.js",
-    "typecheck": "node --check script.js && node --check src/apps/mind/mind-app.js && node --check src/data/adapters/supabase-community-adapter.js && node --check src/domain/atlas.js && node --check src/seo/metadata.js",
+    "lint": "node --check script.js && node --check admin/admin.js && node --check src/apps/gallery-studio/gallery-studio.js && node --check src/apps/media-player/media-player.js && node --check discord/mind-bot.js && node --check discord/mind-supabase-bridge.js",
+    "typecheck": "node --check script.js && node --check src/apps/mind/mind-app.js && node --check src/apps/gallery-studio/gallery-studio.js && node --check src/apps/media-player/media-player.js && node --check src/data/adapters/supabase-community-adapter.js && node --check src/domain/atlas.js && node --check src/seo/metadata.js",
     "build": "node tools/generate-seo.mjs && node tools/verify-static.mjs",
     "seo:generate": "node tools/generate-seo.mjs",
     "serve": "python3 -m http.server 5179 --bind 127.0.0.1",

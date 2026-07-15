@@ -57,5 +57,12 @@ export const defaultContent = {
   ],
   fragments: [
     { id: "catalog-state-of-mind", title: "State Of Mind", body: "EP released 28 June 2022.", sourceType: "apple_music", sourceRef: "1656676894", status: "published" }
+  ],
+  ads: [
+    { id: "security-memory", title: "AWAKEN SECURITY CENTRE", enabled: true, type: "security", weight: 3, minimumSessionAgeMs: 45000, cooldownMs: 600000, maximumPerSession: 1, maximumPerDay: 2, actionType: "recover", contentReference: "recovery-default" },
+    { id: "messenger-unknown", title: "AWAKEN Messenger", enabled: true, type: "messenger", weight: 2, minimumSessionAgeMs: 90000, cooldownMs: 900000, maximumPerSession: 1, maximumPerDay: 1, actionType: "message", contentReference: "mind-recent" }
+  ],
+  featureFlags: [
+    { id: "runtime", title: "Runtime integrations", adsRuntimeEnabled: true, intrusionEnabled: true, galleryStudioEnabled: true, upgradedMediaPlayerEnabled: true }
   ]
 };

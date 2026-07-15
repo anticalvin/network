@@ -39,3 +39,8 @@ The public site also never receives the Discord bot token or Supabase server key
 Community link descriptions, interface empty/fallback copy, themes, transmission copy, and Memory Card fragments now live in `src/content/default-content.js`. Icon artwork and visibility live in `src/content/icon-manifest.js`.
 
 Catalog packages remain in `script.js` because they contain verified shell-specific presentation metadata and converting all package rendering in this phase would increase regression risk. Terminal command names, path labels, button labels, accessibility labels, and error/empty-state utility language remain code-owned because they are interface contracts rather than editorial posts.
+# Runtime Creative Layer
+
+The desktop shell remains the owner of boot, windows, taskbar, Explorer, Start, terminal, and context menus. Gallery Studio and Media Player are scoped app renderers under `src/apps`; they receive shell services and return cleanup handlers. Ads, recovery, intrusion, Gallery projects, scheduling, and media URL parsing live in testable domain modules. Cross-system behavior uses `AWAKEN_EVENTS`, while session-only intrusion state uses `runtime-state.js`.
+
+`A:\Gallery` is a projection of bounded local Gallery records. The architecture intentionally does not create a second filesystem or media repository. Supabase-backed persistence can replace the local projection behind the existing repository interfaces without changing app behavior.

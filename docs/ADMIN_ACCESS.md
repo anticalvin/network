@@ -37,3 +37,6 @@ Required deployment values are `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for
 - **401**: the session or public key is missing or invalid.
 - **403 / RLS violation**: the user is not authenticated, the admin claim is missing, or the JWT has not been refreshed since the role changed.
 - **Local edits missing**: admin preview and desktop must use the same browser origin and storage.
+# Runtime Controls
+
+The existing admin includes Ads & Intrusion and Feature Flags sections. Local preview edits use the established ContentRepository draft storage. Ad preview opens the real desktop with frequency recording disabled. Remote writes remain locked behind the existing Supabase authentication and admin-role policy; this update does not add a service-role key or public write path.

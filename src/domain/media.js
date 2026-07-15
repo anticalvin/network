@@ -25,6 +25,23 @@ export function isImgBBUrl(value) {
   return Boolean(url && IMGBB_HOSTS.has(new URL(url).hostname.replace(/^www\./, "")));
 }
 
+export function mediaProviderEmbed(provider, value) {
+  const url = safeUrl(value);
+  if (!url) return null;
+  const parsed = new URL(url);
+  if (provider === "apple" && parsed.hostname.endsWith("music.apple.com")) {
+    parsed.hostname = "embed.music.apple.com";
+    return parsed.href;
+  }
+  if (provider === "soundcloud" && parsed.hostname.endsWith("soundcloud.com")) return `https://w.soundcloud.com/player/?url=${encodeURIComponent(parsed.href)}&color=%23da4a44&auto_play=false&hide_related=true&show_comments=false`;
+  if (provider === "spotify" && parsed.hostname === "open.spotify.com") {
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const index = parts.findIndex((part) => ["track", "album", "artist", "playlist", "episode", "show"].includes(part));
+    if (index >= 0 && parts[index + 1]) return `https://open.spotify.com/embed/${parts[index]}/${parts[index + 1]}`;
+  }
+  return null;
+}
+
 export function safeUrl(value) {
   if (!value || typeof value !== "string") return null;
   if (/^assets\/[a-z0-9_./-]+$/i.test(value)) return value;

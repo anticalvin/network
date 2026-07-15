@@ -15,7 +15,27 @@ export const AWAKEN_EVENTS = Object.freeze({
   CONTENT_UPDATED: "awaken:content-updated",
   FILESYSTEM_UPDATED: "awaken:filesystem-updated",
   MIND_UPDATED: "awaken:mind-updated",
-  CONNECTION_CHANGED: "awaken:connection-changed"
+  CONNECTION_CHANGED: "awaken:connection-changed",
+  ADS_SCHEDULE: "ads:schedule",
+  ADS_SPAWN: "ads:spawn",
+  ADS_CLOSE: "ads:close",
+  ADS_ACTION: "ads:action",
+  MEMORY_RECOVER_REQUESTED: "memory:recover-requested",
+  MEMORY_RECOVER_COMPLETED: "memory:recover-completed",
+  MEMORY_RECOVER_FAILED: "memory:recover-failed",
+  INTRUSION_START: "intrusion:start",
+  INTRUSION_STAGE: "intrusion:stage",
+  INTRUSION_CANCEL: "intrusion:cancel",
+  INTRUSION_COMPLETE: "intrusion:complete",
+  GALLERY_OPEN: "gallery:open",
+  GALLERY_SAVE: "gallery:save",
+  GALLERY_SAVED: "gallery:saved",
+  GALLERY_DIRTY_STATE: "gallery:dirty-state",
+  FILESYSTEM_FILE_CREATED: "filesystem:file-created",
+  MEDIA_OPEN: "media:open",
+  MEDIA_PLAY: "media:play",
+  MEDIA_PAUSE: "media:pause",
+  MEDIA_STOP: "media:stop"
 });
 
 export class EventBus {

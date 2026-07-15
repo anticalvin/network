@@ -11,7 +11,18 @@ import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
 import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
+import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
+import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
+import { recoverFragments } from "./src/domain/recovery.js";
+import { advanceIntrusion, cancelIntrusion, createIntrusionState } from "./src/domain/intrusion.js";
+import { getRuntimeConfig, getSessionState, setSessionState } from "./src/system/runtime-state.js";
 import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js";
+import { atlasSeed } from "./src/content/atlas-seed.js";
+import { atlasGraph, filterPublicAtlasBundle } from "./src/domain/atlas.js";
+import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
+import { AtlasRepository } from "./src/data/atlas-repository.js";
+import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
+import { GalleryRepository } from "./src/data/gallery-repository.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -153,8 +164,10 @@ const PROJECTS = [
 
 const APPS = [
   { id: "archive", title: "Archive", kind: "Folder", icon: "A:", action: () => openExplorer("A:\\Archive") },
+  { id: "gallery-folder", title: "Gallery", kind: "Folder", icon: "GL", action: () => openExplorer("A:\\Gallery") },
   { id: "memory", title: "Memory Card", kind: "Program", icon: "MC", action: openMemoryCard },
   { id: "music", title: "Media Player", kind: "Program", icon: "MP", action: openMusic },
+  { id: "paint", title: "AWAKEN Paint", kind: "Program", icon: "AP", action: openAwakenPaint },
   { id: "mind", title: "MIND", kind: "Program", icon: "AI", action: openMind },
   { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
   { id: "shop", title: "Shop", kind: "Program", icon: "$", action: openShop },
@@ -220,11 +233,22 @@ let memoryCard = emptyMemoryCard();
 const repository = new ContentRepository();
 const supabaseClient = createSupabaseRestClient();
 const communityRepository = new CommunityRepository({ adapter: new SupabaseCommunityAdapter(supabaseClient) });
+const atlasRepository = new AtlasRepository({ adapter: new SupabaseAtlasAdapter(supabaseClient), fallback: atlasSeed });
+const galleryRepository = new GalleryRepository(supabaseClient);
+let PUBLIC_ATLAS = filterPublicAtlasBundle(atlasSeed);
+void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
 const sessionDisplays = {};
 let bootFinished = false;
 let clockTimer = 0;
 let clockResyncTimer = 0;
 let contextMenu = null;
+let galleryFiles = [];
+let localGalleryFiles = [];
+let sharedGalleryFiles = [];
+let adRecords = safeJson(localStorage.getItem("awaken.adRecords")) || {};
+const sessionStartedAt = Date.now();
+let adTimer = 0;
+let intrusionTimer = 0;
 
 const bootloader = document.getElementById("bootloader");
 const osContainer = document.getElementById("os-container");
@@ -234,6 +258,10 @@ const taskButtons = document.getElementById("task-buttons");
 
 async function init() {
   memoryCard = loadMemoryCard();
+  localGalleryFiles = loadLocalGalleryFiles();
+  mergeGalleryFiles();
+  void refreshSharedGallery();
+  galleryRepository.subscribe(() => { void refreshSharedGallery(); });
   const loaded = await repository.getPublicContent();
   managedContent = loaded.content;
   document.getElementById("boot-skip").addEventListener("click", finishBoot);
@@ -242,6 +270,7 @@ async function init() {
     if (event.key === "Escape") {
       closeStartMenu();
       closeContextMenu();
+      document.querySelector(".intrusion-program [data-cancel]")?.click();
     }
   });
   runBoot();
@@ -285,6 +314,12 @@ function finishBoot() {
   bindDesktopContextMenu();
   applyPreferences();
   scheduleTransmissions();
+  scheduleAds();
+  const previewAdId = new URLSearchParams(location.search).get("previewAd");
+  if (previewAdId && new URLSearchParams(location.search).has("adminPreview")) {
+    const previewAd = runtimeAdDefinitions().find((item) => item.id === previewAdId);
+    if (previewAd) window.setTimeout(() => showManagedAd(previewAd, true), 250);
+  }
 }
 
 function updateClock() {
@@ -390,7 +425,9 @@ function createWindow(title, options = {}) {
   win.className = "window";
   win.dataset.id = `window-${++windowCount}`;
   if (options.appId) win.dataset.appId = options.appId;
-  win.style.left = `${70 + (windowCount % 5) * 28}px`;
+  const requestedLeft = 70 + (windowCount % 5) * 28;
+  const expectedWidth = Math.min(options.wide ? 860 : 720, Math.max(320, window.innerWidth - 36));
+  win.style.left = `${Math.max(0, Math.min(requestedLeft, window.innerWidth - expectedWidth - 8))}px`;
   win.style.top = `${44 + (windowCount % 5) * 22}px`;
   win.style.zIndex = ++highestZ;
   if (options.wide) win.style.width = "min(860px, calc(100vw - 36px))";
@@ -433,10 +470,14 @@ function createWindow(title, options = {}) {
   const task = addTask(win, title);
   close.addEventListener("click", (event) => {
     event.stopPropagation();
-    win.dispatchEvent(new CustomEvent("awaken:window-close"));
+    const closeEvent = new CustomEvent("awaken:window-close", { cancelable: true });
+    if (!win.dispatchEvent(closeEvent)) return;
     task.remove();
     win.remove();
     activateTopWindow();
+  });
+  header.addEventListener("dblclick", (event) => {
+    if (!event.target.closest("button")) toggleMaximize(win);
   });
   min.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -556,6 +597,9 @@ function openExplorer(path = "A:\\") {
   document.getElementById("path-label").textContent = currentPath;
   const { content } = createWindow(`Explorer - ${currentPath}`, { wide: true, appId: `explorer:${currentPath.toLowerCase()}` });
   renderExplorer(content, currentPath);
+  if (currentPath.toLowerCase() === "a:\\gallery") {
+    void refreshSharedGallery().then(() => { if (content.isConnected) renderExplorer(content, "A:\\Gallery"); });
+  }
 }
 
 function renderExplorer(content, path) {
@@ -588,6 +632,7 @@ function renderExplorer(content, path) {
     row.className = "file-row";
     row.innerHTML = `<span>${iconFor(entry.type)}</span><span>${entry.name}</span><span>${entry.type}</span><span>${entry.size || "--"}</span><span>${entry.modified || "--"}</span>`;
     row.addEventListener("click", () => openEntry(entry, content));
+    row.addEventListener("contextmenu", (event) => showContextMenu(event, "file", entry));
     list.appendChild(row);
   });
   if (!entries.length) list.insertAdjacentHTML("beforeend", `<div class="empty-state">This folder is currently empty.</div>`);
@@ -617,14 +662,17 @@ function getEntriesForPath(path) {
   if (p === "a:\\" || p === "a:") {
     return [
       folder("Archive", "A:\\Archive"),
+      folder("Atlas", "A:\\Atlas"),
       folder("Packages", "A:\\Packages"),
       folder("Programs", "A:\\Programs"),
+      folder("Gallery", "A:\\Gallery"),
       folder("Community", "A:\\Community"),
       folder("Team", "A:\\Team"),
       folder("Wallpapers", "A:\\Wallpapers"),
       fileByName("README.txt")
     ];
   }
+  if (p === "a:\\atlas" || p.startsWith("a:\\atlas\\")) return atlasEntriesForPath(path, PUBLIC_ATLAS);
   if (p.includes("archive\\2019")) return packageEntries(["xp", "hated"]);
   if (p.includes("archive\\2021")) return packageEntries(["xpv2", "new-swag"]);
   if (p.includes("archive\\2022")) return packageEntries(["central-african-time", "state-of-mind"]);
@@ -634,6 +682,7 @@ function getEntriesForPath(path) {
   }
   if (p.endsWith("packages")) return packageEntries(PROJECTS.map((project) => project.id));
   if (p.endsWith("programs")) return APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app }));
+  if (p.endsWith("gallery")) return galleryFiles;
   if (p.endsWith("community")) return [folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
   if (p.endsWith("community\\xp")) return [fileByName("MIND.exe"), { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }];
   if (p.endsWith("team")) return TEAM_MEMBERS.map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person }));
@@ -668,9 +717,31 @@ function openEntry(entry, explorerContent) {
   if (entry.type === "App") entry.app.action();
   if (entry.type === "Link") openPortal(entry.name.replace(".url", ""), entry.url, entry.detail || "External AWAKEN NETWORK link.");
   if (entry.type === "Image") openImage(entry);
+  if (entry.type === "Gallery Image" || entry.type === "Gallery Project") openAwakenPaint(entry);
   if (entry.type === "Text") openText(entry.name, entry.content);
   if (entry.type === "Theme") setWallpaper(entry.wallpaper);
   if (entry.type === "Person") openTeamProfile(entry.person);
+  if (entry.type === "Atlas Entity") openAtlasEntity(entry.atlasEntity);
+}
+
+function openAtlasEntity(entity) {
+  if (!entity || focusExistingWindow(`atlas:${entity.id}`)) return;
+  const graph = atlasGraph(entity.id, PUBLIC_ATLAS);
+  const related = graph.related.length
+    ? `<ul>${graph.related.map((item) => `<li>${escapeHtml(item.name)} <small>${escapeHtml(item.entityType)}</small></li>`).join("")}</ul>`
+    : `<p class="empty-state">No public relationships are available.</p>`;
+  const externalUrl = entity.metadata?.officialUrl || entity.metadata?.url;
+  const { content } = createWindow(`Atlas - ${entity.name}`, { wide: true, appId: `atlas:${entity.id}` });
+  content.innerHTML = `
+    <section class="atlas-profile">
+      <p class="eyebrow">${escapeHtml(entity.entityType.replaceAll("_", " "))}</p>
+      <h2>${escapeHtml(entity.name)}</h2>
+      ${entity.summary ? `<p>${escapeHtml(entity.summary)}</p>` : ""}
+      <dl class="meta-grid"><div class="meta"><dt>Verification</dt><dd>${escapeHtml(entity.verificationState.replaceAll("_", " "))}</dd></div><div class="meta"><dt>Confidence</dt><dd>${Math.round(entity.confidence * 100)}%</dd></div></dl>
+      ${externalUrl ? `<button type="button" data-atlas-source>Open official source</button>` : ""}
+      <h3>Related</h3>${related}
+    </section>`;
+  content.querySelector("[data-atlas-source]")?.addEventListener("click", () => window.open(externalUrl, "_blank", "noopener,noreferrer"));
 }
 
 function openPackage(id) {
@@ -720,10 +791,76 @@ function openPackage(id) {
 }
 
 function openMusic() {
+  if (!getRuntimeConfig().features.upgraded_media_player_enabled) { openText("AWAKEN Media Player", "Media Player is disabled by runtime configuration."); return; }
   if (focusExistingWindow("media-player")) return;
   const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
-  const cleanup = renderMediaPlayer(content, { projects: PROJECTS, links: LINKS, audio: document.getElementById("audio-snippet") });
+  const publicReleaseSlugs = new Set(PUBLIC_ATLAS.entities.filter((entity) => entity.entityType === "release").map((entity) => entity.slug));
+  const atlasProjects = PROJECTS.filter((project) => publicReleaseSlugs.has(project.id));
+  const cleanup = renderMediaPlayer(content, { projects: atlasProjects, links: LINKS, audio: document.getElementById("audio-snippet") });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
+}
+
+function openAwakenPaint(initialFile = null) {
+  if (!getRuntimeConfig().features.gallery_studio_enabled) { openText("AWAKEN Paint", "AWAKEN Paint is disabled by runtime configuration."); return; }
+  if (focusExistingWindow("awaken-paint")) return;
+  const { win, content } = createWindow("AWAKEN Paint - A:\\Gallery", { wide: true, className: "gallery-window", appId: "awaken-paint" });
+  win.style.width = "min(1180px, calc(100vw - 24px))";
+  win.style.left = "max(8px, calc((100vw - min(1180px, calc(100vw - 24px))) / 2))";
+  win.style.top = "8px";
+  win.style.height = "min(780px, calc(100vh - var(--topbar-h) - var(--taskbar-h) - 16px))";
+  const studio = renderGalleryStudio(content, { initialFile, onSave: registerGalleryFile });
+  win.addEventListener("awaken:window-close", (event) => {
+    if (!studio.requestClose()) { event.preventDefault(); return; }
+    studio.cleanup();
+  });
+}
+
+async function registerGalleryFile(record, { shared = false, imageBlob } = {}) {
+  const image = { ...record, type: "Gallery Image", src: record.image };
+  const project = { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") };
+  localGalleryFiles = [image, project, ...localGalleryFiles.filter((item) => item.id !== image.id && item.id !== project.id)].slice(0, 16);
+  mergeGalleryFiles();
+  memoryCard = saveMemoryCard(addMemoryItem(memoryCard, { id: record.id, type: "gallery", title: record.name, path: record.path, localOnly: true }));
+  awakenBus.emit(AWAKEN_EVENTS.FILESYSTEM_FILE_CREATED, { id: record.id, path: record.path, type: "image", localOnly: true });
+  if (!shared) return { submitted: false, localOnly: true };
+  try {
+    const submission = await galleryRepository.submit({
+      clientSubmissionId: record.id,
+      title: record.project.metadata.title,
+      creator: record.project.metadata.creator,
+      atlasEntityId: record.project.metadata.atlasEntityId,
+      width: record.project.canvas.width,
+      height: record.project.canvas.height,
+      imageBlob
+    });
+    awakenBus.emit(AWAKEN_EVENTS.FILESYSTEM_UPDATED, { path: "A:\\Gallery", submissionId: submission.id, moderationStatus: submission.moderationStatus });
+    return { submitted: true, submission };
+  } catch (error) {
+    return { submitted: false, reason: error.message };
+  }
+}
+
+function loadLocalGalleryFiles() {
+  const records = safeJson(localStorage.getItem("awaken.gallery.projects.v1")) || [];
+  return records.flatMap((record) => [
+    { ...record, type: "Gallery Image", src: record.image },
+    { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") }
+  ]).slice(0, 12);
+}
+
+async function refreshSharedGallery() {
+  try {
+    sharedGalleryFiles = await galleryRepository.getApproved({ limit: 48 });
+    mergeGalleryFiles();
+  } catch {
+    sharedGalleryFiles = [];
+    mergeGalleryFiles();
+  }
+}
+
+function mergeGalleryFiles() {
+  const localIds = new Set(localGalleryFiles.map((item) => item.id));
+  galleryFiles = [...localGalleryFiles, ...sharedGalleryFiles.filter((item) => !localIds.has(item.id))].slice(0, 64);
 }
 
 function openMind() {
@@ -917,8 +1054,10 @@ function openTeamProfile(person) {
 
 function saveExplicit(button, item) {
   memoryCard = saveMemoryCard(addMemoryItem(memoryCard, item));
-  button.textContent = "Saved";
-  button.disabled = true;
+  if (button) {
+    button.textContent = "Saved";
+    button.disabled = true;
+  }
 }
 
 function openMemoryCard() {
@@ -949,6 +1088,111 @@ function renderMemoryCard(content) {
     memoryCard = saveMemoryCard(emptyMemoryCard());
     renderMemoryCard(content);
   });
+}
+
+function recoverToMemoryCard(source = "system") {
+  awakenBus.emit(AWAKEN_EVENTS.MEMORY_RECOVER_REQUESTED, { source });
+  try {
+    const result = recoverFragments(memoryCard);
+    memoryCard = saveMemoryCard(result.card);
+    awakenBus.emit(AWAKEN_EVENTS.MEMORY_RECOVER_COMPLETED, { source, createdCount: result.created.length, ids: result.created.map((item) => item.id) });
+    return result;
+  } catch (error) {
+    awakenBus.emit(AWAKEN_EVENTS.MEMORY_RECOVER_FAILED, { source, message: error.message });
+    throw error;
+  }
+}
+
+function scheduleAds() {
+  clearInterval(adTimer);
+  const config = getRuntimeConfig();
+  if (!config.features.ads_runtime_enabled) return;
+  const attempt = () => {
+    awakenBus.emit(AWAKEN_EVENTS.ADS_SCHEDULE);
+    if (document.hidden) return;
+    const activeElement = document.activeElement;
+    const blocked = Boolean(document.querySelector(".gallery-dirty") || activeElement?.matches("input, textarea, [contenteditable='true']") || document.querySelector(".admin-shell, [data-uploading='true']"));
+    const ad = selectWeightedAd(runtimeAdDefinitions(), { now: Date.now(), sessionStartedAt, context: "desktop", records: adRecords, blocked, hidden: document.hidden, openCount: document.querySelectorAll(".window[data-ad-id]").length, maximumOpen: 2, disabled: localStorage.getItem("awaken.adsDisabled") === "true" });
+    if (ad) showManagedAd(ad);
+  };
+  adTimer = window.setInterval(attempt, 30_000);
+  window.setTimeout(attempt, 45_000);
+}
+
+function runtimeAdDefinitions() {
+  const managed = managedContent.ads || [];
+  if (!managed.length) return DEFAULT_ADS;
+  return managed.map((entry) => {
+    const base = DEFAULT_ADS.find((item) => item.id === entry.id) || {};
+    return { ...base, id: entry.id, title: entry.title || base.title, enabled: entry.enabled !== false, type: entry.type || base.type, weight: Number(entry.weight ?? base.weight ?? 1), minimum_session_age_ms: Number(entry.minimumSessionAgeMs ?? base.minimum_session_age_ms ?? 0), cooldown_ms: Number(entry.cooldownMs ?? base.cooldown_ms ?? 0), maximum_per_session: Number(entry.maximumPerSession ?? base.maximum_per_session ?? 1), maximum_per_day: Number(entry.maximumPerDay ?? base.maximum_per_day ?? 1), start_at: entry.startAt || null, end_at: entry.endAt || null, action_type: entry.actionType || base.action_type, content_reference: entry.contentReference || base.content_reference, eligible_contexts: base.eligible_contexts || ["desktop"], excluded_contexts: base.excluded_contexts || ["gallery-dirty", "admin", "upload", "text-input"] };
+  });
+}
+
+async function showManagedAd(ad, preview = false) {
+  if (!preview && document.querySelector(`.window[data-ad-id="${CSS.escape(ad.id)}"]`)) return;
+  const { win, content } = createWindow(ad.title, { appId: preview ? `ad-preview:${ad.id}` : undefined });
+  win.dataset.adId = ad.id;
+  win.classList.add("managed-ad", `managed-ad-${ad.type}`);
+  let copy = ad.copy;
+  if (ad.requires_mind_data) {
+    try {
+      const messages = await communityRepository.getMany({ limit: 8 });
+      const eligible = messages.filter((message) => !message.deletedAt && (!message.visibility || message.visibility === "public") && (!message.moderationStatus || message.moderationStatus === "approved"));
+      copy = eligible.at(-1)?.body || copy;
+    } catch { /* Approved bundled copy remains visible. */ }
+  }
+  content.innerHTML = `<div class="managed-ad-body"><strong>${escapeHtml(ad.type === "security" ? "UNREGISTERED MEMORY DETECTED" : ad.title)}</strong><p>${escapeHtml(copy)}</p><small>${escapeHtml(ad.content_reference || "AWAKEN NETWORK")}</small><div><button type="button" data-ad-action>${ad.action_type === "recover" ? "RECOVER" : "OPEN"}</button><button type="button" data-ad-close>NOT NOW</button></div></div>`;
+  const close = () => win.querySelector(".window-controls button:last-child")?.click();
+  content.querySelector("[data-ad-close]").addEventListener("click", close);
+  content.querySelector("[data-ad-action]").addEventListener("click", () => {
+    awakenBus.emit(AWAKEN_EVENTS.ADS_ACTION, { id: ad.id, action: ad.action_type });
+    if (ad.action_type === "recover") {
+      const result = recoverToMemoryCard(`ad:${ad.id}`);
+      content.querySelector(".managed-ad-body").innerHTML = `<strong>RECOVERY COMPLETE</strong><p>${result.created.length} new fragment${result.created.length === 1 ? "" : "s"} moved to the Memory Card.</p><button type="button" data-ad-close>OK</button>`;
+      content.querySelector("[data-ad-close]").addEventListener("click", close);
+    } else if (ad.action_type === "message") openExplorer("A:\\Archive\\Assets");
+    else openTerminal("scan");
+  });
+  win.addEventListener("awaken:window-close", () => awakenBus.emit(AWAKEN_EVENTS.ADS_CLOSE, { id: ad.id }), { once: true });
+  if (!preview) {
+    adRecords = recordAdDisplay(adRecords, ad.id);
+    localStorage.setItem("awaken.adRecords", JSON.stringify(adRecords));
+  }
+  awakenBus.emit(AWAKEN_EVENTS.ADS_SPAWN, { id: ad.id, preview });
+}
+
+function startIntrusion({ manual = false } = {}) {
+  const config = getRuntimeConfig();
+  if (!config.features.intrusion_enabled) return { started: false, reason: "disabled" };
+  if (matchMedia("(max-width: 760px)").matches || document.querySelector(".gallery-dirty") || getSessionState("intrusion.running")) return { started: false, reason: "busy" };
+  if (!manual && getSessionState("intrusion.completed")) return { started: false, reason: "already-completed" };
+  let state = createIntrusionState({ completed: false });
+  setSessionState("intrusion.running", true);
+  awakenBus.emit(AWAKEN_EVENTS.INTRUSION_START, { manual });
+  const { win, content } = createWindow("AWAKEN Intrusion", { appId: "awaken-intrusion", className: "intrusion-window" });
+  win.classList.add("intrusion-program");
+  content.innerHTML = `<div class="intrusion-screen"><pre data-intrusion-output>ARMED_</pre><button type="button" data-cancel>Cancel sequence</button></div>`;
+  const output = content.querySelector("[data-intrusion-output]");
+  const finish = (cancelled = false) => {
+    clearInterval(intrusionTimer);
+    setSessionState("intrusion.running", false); setSessionState("intrusion.completed", true);
+    if (cancelled) awakenBus.emit(AWAKEN_EVENTS.INTRUSION_CANCEL);
+    awakenBus.emit(AWAKEN_EVENTS.INTRUSION_COMPLETE, { cancelled });
+    output.textContent += cancelled ? "\nSEQUENCE CANCELLED / DESKTOP STABLE" : "\nRECOVERY COMPLETE / ARCHIVE CLUE RESTORED";
+    const cancelButton = content.querySelector("[data-cancel]");
+    cancelButton.disabled = true;
+    cancelButton.textContent = cancelled ? "Sequence cancelled" : "Sequence complete";
+  };
+  content.querySelector("[data-cancel]").addEventListener("click", () => { if (state.completed) return; state = cancelIntrusion(state); finish(true); });
+  intrusionTimer = window.setInterval(() => {
+    state = advanceIntrusion(state);
+    awakenBus.emit(AWAKEN_EVENTS.INTRUSION_STAGE, { stage: state.stage, index: state.index });
+    output.textContent += `\n${state.stage.toUpperCase().replace(/-/g, "_")}`;
+    if (state.stage === "reveal") { const result = recoverToMemoryCard("intrusion"); output.textContent += `\n${result.created.length} NEW MEMORY FRAGMENTS`; }
+    if (state.completed) finish(false);
+  }, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 650);
+  win.addEventListener("awaken:window-close", () => { if (!state.completed) { state = cancelIntrusion(state); finish(true); } }, { once: true });
+  return { started: true };
 }
 
 function scheduleTransmissions() {
@@ -1015,6 +1259,7 @@ function openSettings() {
       <section><h2>Desktop</h2><div class="settings-row"><label><input type="checkbox" data-show-icons ${localStorage.getItem("awaken.showIcons") !== "false" ? "checked" : ""}> Show desktop icons</label><button type="button" data-reset-icons>Restore icon arrangement</button><button type="button" data-reset-boot>Show boot next visit</button></div></section>
       <section><h2>System</h2><dl class="system-info">${Object.entries(info).map(([key, value]) => `<div><dt>${titleCase(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join("")}</dl></section>
       <section><h2>Storage</h2><p>${memoryCard.items.length} saved Memory Card item${memoryCard.items.length === 1 ? "" : "s"}.</p><div class="settings-row"><button type="button" data-clear-preferences>Clear local preferences</button><button type="button" data-clear-memory>Clear Memory Card</button></div></section>
+      <section><h2>Runtime</h2><div class="settings-row"><label><input type="checkbox" data-ads-enabled ${localStorage.getItem("awaken.adsDisabled") !== "true" ? "checked" : ""}> Allow occasional NETWORK notices</label></div></section>
       <section><h2>About</h2><p>AWAKEN NETWORK OS v4.2 connects the AWAKEN archive, community, music, tools, and saved references.</p><div class="settings-row"><button type="button" data-about-url="${LINKS.website}">Website</button><button type="button" data-about-url="${LINKS.youtube}">YouTube</button><button type="button" data-about-url="${LINKS.spotify}">Spotify</button></div></section>
     </div>
   `;
@@ -1028,6 +1273,7 @@ function openSettings() {
   content.querySelector("[data-reduced-motion]").addEventListener("change", (event) => { localStorage.setItem("awaken.reducedMotion", String(event.target.checked)); applyPreferences(); });
   content.querySelector("[data-sound]").addEventListener("change", (event) => localStorage.setItem("awaken.sound", String(event.target.checked)));
   content.querySelector("[data-show-icons]").addEventListener("change", (event) => { localStorage.setItem("awaken.showIcons", String(event.target.checked)); applyPreferences(); });
+  content.querySelector("[data-ads-enabled]").addEventListener("change", (event) => { localStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); if (event.target.checked) scheduleAds(); });
   content.querySelector("[data-reset-icons]").addEventListener("click", () => { localStorage.removeItem("awaken.iconOverrides"); buildDesktop(); });
   content.querySelector("[data-reset-boot]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
   content.querySelector("[data-clear-preferences]").addEventListener("click", () => {
@@ -1116,9 +1362,20 @@ function runCommand(command, output) {
   else if (lower === "open") terminalOpen(arg, output);
   else if (lower === "find") searchAll(arg).slice(0, 12).forEach((item) => print(output, [`${item.kind}: ${item.title}`]));
   else if (lower === "type" && arg.toLowerCase() === "readme") print(output, [fileByName("README.txt").content]);
-  else if (lower === "scan") print(output, ["3 live tools detected.", "7 catalog packages indexed.", "9 public network links verified."]);
-  else if (lower === "recover") print(output, ["Recovered archive.", "Package incomplete.", "Network stable."]);
-  else if (lower === "whoami") print(output, ["visitor / public"]);
+  else if (lower === "scan") {
+    awakenBus.emit(AWAKEN_EVENTS.ADS_SCHEDULE, { source: "terminal" });
+    const result = startIntrusion({ manual: true });
+    print(output, result.started ? ["Runtime scan started.", "Controlled intrusion sequence armed."] : [`Scan complete. Sequence not started: ${result.reason}.`]);
+  }
+  else if (lower === "recover") {
+    const result = recoverToMemoryCard("terminal");
+    print(output, [`Recovery complete: ${result.created.length} new fragment${result.created.length === 1 ? "" : "s"}.`, `${memoryCard.items.length} total Memory Card entries.`]);
+  }
+  else if (lower === "whoami") print(output, [sessionStorage.getItem("awaken.session") === "guest" ? "guest / public network" : "visitor / public network"]);
+  else if (lower === "testad" && (location.hostname === "127.0.0.1" || new URLSearchParams(location.search).has("adminPreview"))) {
+    const ad = runtimeAdDefinitions().find((item) => item.id === arg) || runtimeAdDefinitions()[0];
+    void showManagedAd(ad, true); print(output, [`Previewing ${ad.id}; frequency state unchanged.`]);
+  }
   else if (lower === "version") print(output, ["AWAKEN OS v4.2 static frontend"]);
   else if (lower === "discord") window.open(LINKS.discord, "_blank", "noopener,noreferrer");
   else print(output, [`Unknown command: ${command}`]);
@@ -1228,6 +1485,13 @@ function contextActions(type, target) {
     ...(!target.hidden ? [{ label: "Minimize", action: () => minimizeWindow(target) }] : []),
     { label: target.dataset.maximized === "true" ? "Restore Size" : "Maximize", action: () => toggleMaximize(target) },
     { label: "Close", action: () => target.querySelector(".window-controls button:last-child")?.click() }
+  ];
+  if (type === "file") return [
+    { label: "Open", action: () => openEntry(target) },
+    ...(target.type === "Image" || target.type === "Gallery Image" ? [{ label: "Open in AWAKEN Paint", action: () => openAwakenPaint(target) }] : []),
+    ...(target.type === "Audio" ? [{ label: "Play in AWAKEN Media Player", action: openMusic }] : []),
+    { label: "Save to Memory Card", action: () => saveExplicit(null, { id: target.id || target.path, type: "file", title: target.name, path: target.path }) },
+    { label: "Properties", action: () => openText(`${target.name} Properties`, `${target.path || target.name}\nType: ${target.type}\nModified: ${target.modified || "unknown"}`) }
   ];
   return [
     { label: "Open Archive", action: () => openExplorer("A:\\Archive") },

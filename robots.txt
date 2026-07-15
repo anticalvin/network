@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /awaken-system/
+Disallow: /*?*
+
+Sitemap: https://awakencult.com/sitemap.xml

@@ -3,8 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="AWAKEN NETWORK OS - the connected archive shell for AWAKEN CULT." />
-  <title>AWAKEN NETWORK OS</title>
+  <title>AWAKEN CULT — NETWORK OS</title>
+  <meta name="description" content="Enter the AWAKEN CULT NETWORK OS: music, archive, community projects, and connected creative tools." />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <meta name="theme-color" content="#da4a44" />
+  <link rel="canonical" href="https://awakencult.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="AWAKEN CULT" />
+  <meta property="og:title" content="AWAKEN CULT — NETWORK OS" />
+  <meta property="og:description" content="Music, archive, community projects, and connected creative tools inside AWAKEN NETWORK OS." />
+  <meta property="og:url" content="https://awakencult.com/" />
+  <meta property="og:image" content="https://awakencult.com/assets/img/new-collection.webp" />
+  <meta property="og:image:alt" content="AWAKEN CULT archive artwork" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AWAKEN CULT — NETWORK OS" />
+  <meta name="twitter:description" content="Music, archive, community projects, and connected creative tools inside AWAKEN NETWORK OS." />
+  <meta name="twitter:image" content="https://awakencult.com/assets/img/new-collection.webp" />
   <script>
     (() => {
       const params = new URLSearchParams(location.search);
@@ -14,8 +28,48 @@
       }
     })();
   </script>
-  <link rel="icon" href="assets/img/smiley-black.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="assets/icons/favicon.ico" sizes="any" />
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/icons/favicon-96x96.png" type="image/png" sizes="96x96" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" sizes="180x180" />
+  <link rel="manifest" href="site.webmanifest" />
+  <link rel="stylesheet" href="styles.css?v=atlas-2" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": ["Organization", "MusicGroup"],
+          "@id": "https://awakencult.com/#organization",
+          "name": "AWAKEN CULT",
+          "url": "https://awakencult.com/",
+          "logo": "https://awakencult.com/assets/icons/web-app-manifest-512x512.png",
+          "sameAs": [
+            "https://soundcloud.com/awakencult",
+            "https://www.youtube.com/@awakencult",
+            "https://www.instagram.com/awakencult",
+            "https://x.com/awakencult"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://awakencult.com/#website",
+          "name": "AWAKEN CULT",
+          "url": "https://awakencult.com/",
+          "publisher": { "@id": "https://awakencult.com/#organization" }
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://awakencult.com/#webpage",
+          "name": "AWAKEN CULT — NETWORK OS",
+          "description": "Enter the AWAKEN CULT NETWORK OS: music, archive, community projects, and connected creative tools.",
+          "url": "https://awakencult.com/",
+          "isPartOf": { "@id": "https://awakencult.com/#website" },
+          "about": { "@id": "https://awakencult.com/#organization" }
+        }
+      ]
+    }
+  </script>
 </head>
 <body>
   <div id="bootloader" class="bootloader" aria-live="polite">
@@ -29,7 +83,7 @@
   <main id="os-container" class="os" aria-label="AWAKEN NETWORK desktop">
     <header id="topbar" class="topbar">
       <span id="path-label">A:\</span>
-      <strong>AWAKEN NETWORK</strong>
+      <h1>AWAKEN NETWORK</h1>
       <span class="signal">NETWORK ONLINE</span>
       <time id="top-clock"></time>
     </header>
@@ -71,6 +125,6 @@
   <audio id="audio-snippet" src="assets/audio/snippet.wav" preload="auto"></audio>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
-  <script type="module" src="script.js"></script>
+  <script type="module" src="script.js?v=atlas-3"></script>
 </body>
 </html>

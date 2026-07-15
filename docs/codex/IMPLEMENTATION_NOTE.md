@@ -1,0 +1,1 @@
+This branch is an implementation handoff, not the completed runtime integration. Codex should execute the JSON specification against current `main`, preserve the existing test baseline, and report any external production values still required.

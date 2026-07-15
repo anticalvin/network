@@ -41,10 +41,41 @@ export function createSupabaseRestClient(config = getRuntimeConfig()) {
     }
   }
 
+  async function upload(bucket, objectPath, blob, { contentType = blob.type || "application/octet-stream", timeoutMs = 12_000 } = {}) {
+    if (!configured) {
+      const error = new Error("Supabase is not configured.");
+      error.code = "SUPABASE_DISABLED";
+      throw error;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+    try {
+      const response = await fetch(`${url}/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`, {
+        method: "POST",
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": contentType, "x-upsert": "false" },
+        body: blob,
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const error = new Error(`Supabase upload failed: ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+      return response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   return {
     configured,
     source: configured ? "supabase" : "bundled",
     request,
+    upload,
+    publicStorageUrl(bucket, objectPath) {
+      return `${url}/storage/v1/object/public/${encodeURIComponent(bucket)}/${objectPath.split("/").map(encodeURIComponent).join("/")}`;
+    },
     subscribe({ table, event = "*", filter }, callback, onStatus = () => {}) {
       const createClient = globalThis.supabase?.createClient;
       if (!configured || typeof createClient !== "function") {

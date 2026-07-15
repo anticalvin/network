@@ -1,6 +1,6 @@
 # Ads Runtime
 
-Ads are transient managed windows coordinated through `event-bus.js`. `src/domain/ads.js` owns eligibility, weighted selection, cooldowns, per-session and per-day limits. The shell pauses scheduling while hidden, while a text field is active, during uploads, or while Gallery Studio is dirty. Every ad is closable.
+Ads are transient managed windows in the main NETWORK desktop, coordinated through `event-bus.js`. `src/domain/ads.js` owns eligibility, weighted selection, cooldowns, per-session and per-day limits. The shell pauses scheduling while hidden, while a text field is active, during uploads, or while AWAKEN Paint is dirty. Every ad is closable.
 
 The RECOVER action calls the same `recoverToMemoryCard` service as the terminal. Its result reports only entries actually created; stable IDs make repeat recovery idempotent. Messenger content is requested through the public MIND repository and falls back to approved bundled copy.
 

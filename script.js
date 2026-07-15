@@ -22,6 +22,7 @@ import { atlasGraph, filterPublicAtlasBundle } from "./src/domain/atlas.js";
 import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
+import { GalleryRepository } from "./src/data/gallery-repository.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -163,9 +164,10 @@ const PROJECTS = [
 
 const APPS = [
   { id: "archive", title: "Archive", kind: "Folder", icon: "A:", action: () => openExplorer("A:\\Archive") },
+  { id: "gallery-folder", title: "Gallery", kind: "Folder", icon: "GL", action: () => openExplorer("A:\\Gallery") },
   { id: "memory", title: "Memory Card", kind: "Program", icon: "MC", action: openMemoryCard },
   { id: "music", title: "Media Player", kind: "Program", icon: "MP", action: openMusic },
-  { id: "gallery", title: "Gallery Studio", kind: "Program", icon: "GS", action: openGalleryStudio },
+  { id: "paint", title: "AWAKEN Paint", kind: "Program", icon: "AP", action: openAwakenPaint },
   { id: "mind", title: "MIND", kind: "Program", icon: "AI", action: openMind },
   { id: "community", title: "Community", kind: "Program", icon: "CM", action: openCommunity },
   { id: "shop", title: "Shop", kind: "Program", icon: "$", action: openShop },
@@ -232,6 +234,7 @@ const repository = new ContentRepository();
 const supabaseClient = createSupabaseRestClient();
 const communityRepository = new CommunityRepository({ adapter: new SupabaseCommunityAdapter(supabaseClient) });
 const atlasRepository = new AtlasRepository({ adapter: new SupabaseAtlasAdapter(supabaseClient), fallback: atlasSeed });
+const galleryRepository = new GalleryRepository(supabaseClient);
 let PUBLIC_ATLAS = filterPublicAtlasBundle(atlasSeed);
 void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
 const sessionDisplays = {};
@@ -240,6 +243,8 @@ let clockTimer = 0;
 let clockResyncTimer = 0;
 let contextMenu = null;
 let galleryFiles = [];
+let localGalleryFiles = [];
+let sharedGalleryFiles = [];
 let adRecords = safeJson(localStorage.getItem("awaken.adRecords")) || {};
 const sessionStartedAt = Date.now();
 let adTimer = 0;
@@ -253,7 +258,10 @@ const taskButtons = document.getElementById("task-buttons");
 
 async function init() {
   memoryCard = loadMemoryCard();
-  galleryFiles = loadLocalGalleryFiles();
+  localGalleryFiles = loadLocalGalleryFiles();
+  mergeGalleryFiles();
+  void refreshSharedGallery();
+  galleryRepository.subscribe(() => { void refreshSharedGallery(); });
   const loaded = await repository.getPublicContent();
   managedContent = loaded.content;
   document.getElementById("boot-skip").addEventListener("click", finishBoot);
@@ -589,6 +597,9 @@ function openExplorer(path = "A:\\") {
   document.getElementById("path-label").textContent = currentPath;
   const { content } = createWindow(`Explorer - ${currentPath}`, { wide: true, appId: `explorer:${currentPath.toLowerCase()}` });
   renderExplorer(content, currentPath);
+  if (currentPath.toLowerCase() === "a:\\gallery") {
+    void refreshSharedGallery().then(() => { if (content.isConnected) renderExplorer(content, "A:\\Gallery"); });
+  }
 }
 
 function renderExplorer(content, path) {
@@ -706,7 +717,7 @@ function openEntry(entry, explorerContent) {
   if (entry.type === "App") entry.app.action();
   if (entry.type === "Link") openPortal(entry.name.replace(".url", ""), entry.url, entry.detail || "External AWAKEN NETWORK link.");
   if (entry.type === "Image") openImage(entry);
-  if (entry.type === "Gallery Image" || entry.type === "Gallery Project") openGalleryStudio(entry);
+  if (entry.type === "Gallery Image" || entry.type === "Gallery Project") openAwakenPaint(entry);
   if (entry.type === "Text") openText(entry.name, entry.content);
   if (entry.type === "Theme") setWallpaper(entry.wallpaper);
   if (entry.type === "Person") openTeamProfile(entry.person);
@@ -789,10 +800,10 @@ function openMusic() {
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
-function openGalleryStudio(initialFile = null) {
-  if (!getRuntimeConfig().features.gallery_studio_enabled) { openText("AWAKEN Gallery Studio", "Gallery Studio is disabled by runtime configuration."); return; }
-  if (focusExistingWindow("gallery-studio")) return;
-  const { win, content } = createWindow("AWAKEN Gallery Studio - A:\\Gallery", { wide: true, className: "gallery-window", appId: "gallery-studio" });
+function openAwakenPaint(initialFile = null) {
+  if (!getRuntimeConfig().features.gallery_studio_enabled) { openText("AWAKEN Paint", "AWAKEN Paint is disabled by runtime configuration."); return; }
+  if (focusExistingWindow("awaken-paint")) return;
+  const { win, content } = createWindow("AWAKEN Paint - A:\\Gallery", { wide: true, className: "gallery-window", appId: "awaken-paint" });
   win.style.width = "min(1180px, calc(100vw - 24px))";
   win.style.left = "max(8px, calc((100vw - min(1180px, calc(100vw - 24px))) / 2))";
   win.style.top = "8px";
@@ -804,12 +815,29 @@ function openGalleryStudio(initialFile = null) {
   });
 }
 
-function registerGalleryFile(record) {
+async function registerGalleryFile(record, { shared = false, imageBlob } = {}) {
   const image = { ...record, type: "Gallery Image", src: record.image };
   const project = { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") };
-  galleryFiles = [image, project, ...galleryFiles.filter((item) => item.path !== image.path && item.path !== project.path)].slice(0, 12);
+  localGalleryFiles = [image, project, ...localGalleryFiles.filter((item) => item.id !== image.id && item.id !== project.id)].slice(0, 16);
+  mergeGalleryFiles();
   memoryCard = saveMemoryCard(addMemoryItem(memoryCard, { id: record.id, type: "gallery", title: record.name, path: record.path, localOnly: true }));
   awakenBus.emit(AWAKEN_EVENTS.FILESYSTEM_FILE_CREATED, { id: record.id, path: record.path, type: "image", localOnly: true });
+  if (!shared) return { submitted: false, localOnly: true };
+  try {
+    const submission = await galleryRepository.submit({
+      clientSubmissionId: record.id,
+      title: record.project.metadata.title,
+      creator: record.project.metadata.creator,
+      atlasEntityId: record.project.metadata.atlasEntityId,
+      width: record.project.canvas.width,
+      height: record.project.canvas.height,
+      imageBlob
+    });
+    awakenBus.emit(AWAKEN_EVENTS.FILESYSTEM_UPDATED, { path: "A:\\Gallery", submissionId: submission.id, moderationStatus: submission.moderationStatus });
+    return { submitted: true, submission };
+  } catch (error) {
+    return { submitted: false, reason: error.message };
+  }
 }
 
 function loadLocalGalleryFiles() {
@@ -818,6 +846,21 @@ function loadLocalGalleryFiles() {
     { ...record, type: "Gallery Image", src: record.image },
     { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") }
   ]).slice(0, 12);
+}
+
+async function refreshSharedGallery() {
+  try {
+    sharedGalleryFiles = await galleryRepository.getApproved({ limit: 48 });
+    mergeGalleryFiles();
+  } catch {
+    sharedGalleryFiles = [];
+    mergeGalleryFiles();
+  }
+}
+
+function mergeGalleryFiles() {
+  const localIds = new Set(localGalleryFiles.map((item) => item.id));
+  galleryFiles = [...localGalleryFiles, ...sharedGalleryFiles.filter((item) => !localIds.has(item.id))].slice(0, 64);
 }
 
 function openMind() {
@@ -1445,7 +1488,7 @@ function contextActions(type, target) {
   ];
   if (type === "file") return [
     { label: "Open", action: () => openEntry(target) },
-    ...(target.type === "Image" || target.type === "Gallery Image" ? [{ label: "Open in Gallery Studio", action: () => openGalleryStudio(target) }] : []),
+    ...(target.type === "Image" || target.type === "Gallery Image" ? [{ label: "Open in AWAKEN Paint", action: () => openAwakenPaint(target) }] : []),
     ...(target.type === "Audio" ? [{ label: "Play in AWAKEN Media Player", action: openMusic }] : []),
     { label: "Save to Memory Card", action: () => saveExplicit(null, { id: target.id || target.path, type: "file", title: target.name, path: target.path }) },
     { label: "Properties", action: () => openText(`${target.name} Properties`, `${target.path || target.name}\nType: ${target.type}\nModified: ${target.modified || "unknown"}`) }

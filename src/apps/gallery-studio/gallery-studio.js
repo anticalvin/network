@@ -7,6 +7,16 @@ const STORE_KEY = "awaken.gallery.projects.v1";
 
 export function renderGalleryStudio(container, { initialFile = null, onSave = () => {} } = {}) {
   container.innerHTML = markup();
+  const localSaveButton = container.querySelector("[data-save-gallery]");
+  localSaveButton.textContent = "Save to A:\\Gallery";
+  const sharedSaveButton = document.createElement("button");
+  sharedSaveButton.type = "button";
+  sharedSaveButton.dataset.submitShared = "";
+  sharedSaveButton.textContent = "Submit to Shared Gallery";
+  localSaveButton.after(sharedSaveButton);
+  container.querySelector(".gallery-tools > strong").textContent = "AWAKEN Paint";
+  container.querySelector("[data-creator]").placeholder = "anonymous";
+  container.querySelector("[data-image-input]").accept = "image/png,image/jpeg,image/webp";
   const find = (selector) => container.querySelector(selector);
   const composite = find("[data-composite]");
   const overlay = find("[data-overlay]");
@@ -140,15 +150,19 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   function end() { if (!drawing) return; drawing = false; activeLayer()?.context.closePath(); setDirty(); compositeLayers(); }
   function styleLayer(layerContext) { layerContext.lineCap = "round"; layerContext.lineJoin = "round"; layerContext.lineWidth = Number(find("[data-size]").value); layerContext.strokeStyle = find("[data-color]").value; layerContext.fillStyle = find("[data-color]").value; }
 
-  async function saveGallery() {
+  async function saveGallery(shared = false) {
     const title = find("[data-title]").value.trim() || "Untitled";
     const project = createGalleryProject({ width: composite.width, height: composite.height, layers: capture().layers, guides, metadata: { title, creator: find("[data-creator]").value.trim(), visibility: find("[data-visibility]").value, atlasEntityId: find("[data-atlas]").value.trim() || null } });
     const image = composite.toDataURL("image/png");
-    const record = { id: `gallery-${Date.now()}`, name: `${title}.png`, type: "Image", path: `A:\\Gallery\\${title}.png`, image, project, localOnly: true, modified: new Date().toISOString() };
+    const imageBlob = await canvasBlob(composite, "image/png");
+    if (shared && imageBlob.size > 3_145_728) { status("Shared Gallery images must be 3 MB or smaller. Resize the canvas and try again."); return; }
+    const record = { id: crypto.randomUUID?.() || `gallery-${Date.now()}`, name: `${title}.png`, type: "Image", path: `A:\\Gallery\\${title}.png`, image, project, localOnly: true, modified: new Date().toISOString() };
     try {
       const works = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
       localStorage.setItem(STORE_KEY, JSON.stringify([record, ...works].slice(0, 4)));
-      onSave(record); setDirty(false); status(`Saved ${record.path} (local only)`);
+      const result = await onSave(record, { shared, imageBlob });
+      setDirty(false);
+      status(shared ? (result?.submitted ? `Submitted ${record.path} to the shared Gallery for review.` : `Saved locally. Shared submission failed: ${result?.reason || "service unavailable"}`) : `Saved ${record.path}`);
       awakenBus.emit(AWAKEN_EVENTS.GALLERY_SAVED, { id: record.id, path: record.path, visibility: project.metadata.visibility, localOnly: true });
     } catch { status("Save failed: local storage quota exceeded."); }
   }
@@ -172,7 +186,9 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   find("[data-add-guide]").addEventListener("click", () => { guides.vertical.push(Math.round(composite.width / 2)); guides.horizontal.push(Math.round(composite.height / 2)); setDirty(); drawOverlay(); });
   find("[data-import]").addEventListener("click", () => find("[data-image-input]").click());
   find("[data-image-input]").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file?.type.startsWith("image/") || file.size > 20_000_000) return status("Choose an image under 20 MB."); const image = await loadImage(URL.createObjectURL(file), true); pushHistory(); const layer = createLayer(file.name); const scale = Math.min(composite.width / image.width, composite.height / image.height, 1); layer.context.drawImage(image, 0, 0, image.width * scale, image.height * scale); setDirty(); compositeLayers(); });
-  find("[data-save-gallery]").addEventListener("click", saveGallery); find("[data-save-project]").addEventListener("click", exportProject); find("[data-export]").addEventListener("click", exportPng);
+  find("[data-save-gallery]").addEventListener("click", () => saveGallery(false));
+  find("[data-submit-shared]").addEventListener("click", () => saveGallery(true));
+  find("[data-save-project]").addEventListener("click", exportProject); find("[data-export]").addEventListener("click", exportPng);
   find("[data-open-project]").addEventListener("click", () => find("[data-project-input]").click()); find("[data-project-input]").addEventListener("change", (event) => openProject(event.target.files[0]));
   overlay.addEventListener("pointerdown", begin); overlay.addEventListener("pointermove", move); overlay.addEventListener("pointerup", end); overlay.addEventListener("pointercancel", end);
   const keyHandler = (event) => { if (!container.contains(document.activeElement) || ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); find(event.shiftKey ? "[data-redo]" : "[data-undo]").click(); } };
@@ -189,7 +205,7 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
     }).catch(() => status("That image could not be opened."));
   }
 
-  return { isDirty: () => dirty, cleanup: () => { disposed = true; document.removeEventListener("keydown", keyHandler); awakenBus.emit(AWAKEN_EVENTS.GALLERY_DIRTY_STATE, { dirty: false }); }, requestClose: () => !dirty || confirm("Close Gallery Studio without saving your changes?") };
+  return { isDirty: () => dirty, cleanup: () => { disposed = true; document.removeEventListener("keydown", keyHandler); awakenBus.emit(AWAKEN_EVENTS.GALLERY_DIRTY_STATE, { dirty: false }); }, requestClose: () => !dirty || confirm("Close AWAKEN Paint without saving your changes?") };
 
   function setDirty(value = true) { if (disposed || dirty === value) return; dirty = value; container.closest(".window")?.classList.toggle("gallery-dirty", dirty); awakenBus.emit(AWAKEN_EVENTS.GALLERY_DIRTY_STATE, { dirty }); }
   function status(message) { find("[data-status]").textContent = message; }
@@ -200,6 +216,7 @@ function markup() { return `<div class="gallery-studio"><div class="gallery-tool
 function floodFill(context, x, y, color) { const image = context.getImageData(0, 0, context.canvas.width, context.canvas.height); const data = image.data; const start = (y * image.width + x) * 4; const target = [data[start], data[start + 1], data[start + 2], data[start + 3]]; const fill = color.match(/[a-f0-9]{2}/gi).map((value) => parseInt(value, 16)).concat(255); if (target.every((value, index) => value === fill[index])) return; const stack = [[x, y]]; const seen = new Uint8Array(image.width * image.height); let processed = 0; while (stack.length && processed < 4_000_000) { const [currentX, currentY] = stack.pop(); if (currentX < 0 || currentY < 0 || currentX >= image.width || currentY >= image.height) continue; const pixel = currentY * image.width + currentX; if (seen[pixel]) continue; seen[pixel] = 1; const index = pixel * 4; if (Math.abs(data[index] - target[0]) + Math.abs(data[index + 1] - target[1]) + Math.abs(data[index + 2] - target[2]) + Math.abs(data[index + 3] - target[3]) > 25) continue; data.set(fill, index); processed += 1; stack.push([currentX + 1, currentY], [currentX - 1, currentY], [currentX, currentY + 1], [currentX, currentY - 1]); } context.putImageData(image, 0, 0); }
 function loadImage(source, revoke = false) { return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => { if (revoke) URL.revokeObjectURL(source); resolve(image); }; image.onerror = () => { if (revoke) URL.revokeObjectURL(source); reject(new Error("Image could not be decoded.")); }; image.src = source; }); }
 function download(name, blob) { const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0); }
+function canvasBlob(canvas, type) { return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Canvas export failed.")), type)); }
 function slug(value) { return (value || "awaken-gallery").trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "awaken-gallery"; }
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]); }

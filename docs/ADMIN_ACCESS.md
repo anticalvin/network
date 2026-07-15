@@ -40,3 +40,5 @@ Required deployment values are `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for
 # Runtime Controls
 
 The existing admin includes Ads & Intrusion and Feature Flags sections. Local preview edits use the established ContentRepository draft storage. Ad preview opens the real desktop with frequency recording disabled. Remote writes remain locked behind the existing Supabase authentication and admin-role policy; this update does not add a service-role key or public write path.
+
+Gallery Submissions uses Supabase Auth directly. Create or invite the admin user in Supabase Auth, then set `app_metadata.user_role` to `admin`. Sign in from `/admin.html`, open Gallery Submissions, select a review item, and save it as approved or rejected. Only approved flattened images appear in the shared `A:\Gallery`; anonymous submitters cannot update, approve, or delete records.

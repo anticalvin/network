@@ -11,6 +11,11 @@
 <body>
   <header class="admin-header">
     <div><strong>AWAKEN Content Admin</strong><small id="admin-mode">Local editorial preview</small></div>
+    <form id="admin-auth" class="admin-auth">
+      <input name="email" type="email" autocomplete="username" placeholder="Admin email" aria-label="Admin email" />
+      <input name="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Admin password" />
+      <button type="submit">Sign in</button>
+    </form>
     <a href="./index.html">View desktop</a>
   </header>
   <main class="admin-shell">
@@ -22,6 +27,9 @@
       <button type="button" data-section="filesystem">Filesystem</button>
       <button type="button" data-section="media">Media</button>
       <button type="button" data-section="campaigns">Campaigns</button>
+      <button type="button" data-section="ads">Ads &amp; Intrusion</button>
+      <button type="button" data-section="featureFlags">Feature Flags</button>
+      <button type="button" data-section="gallerySubmissions">Gallery Submissions</button>
       <button type="button" data-section="mindBridge">MIND / XP Bridge</button>
       <button type="button" data-section="contributors">Team &amp; Contributors</button>
       <button type="button" data-section="atlasEntities">Atlas Entities</button>
@@ -41,6 +49,7 @@
   </main>
   <div id="admin-status" class="admin-status" role="status" hidden></div>
   <script src="config.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script type="module" src="admin/admin.js"></script>
 </body>
 </html>

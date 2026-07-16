@@ -22,10 +22,14 @@
   <script>
     (() => {
       const params = new URLSearchParams(location.search);
-      const bypass = params.has("skipBoot") || sessionStorage.getItem("awaken.session") === "guest";
-      if (!bypass && sessionStorage.getItem("awaken.entrySequenceComplete") !== "true") {
-        location.replace("./awaken-system/bios.html");
+      const authType = params.get("type") || new URLSearchParams(location.hash.slice(1)).get("type");
+      const hasAuthCode = params.has("code");
+      if (["invite", "recovery"].includes(authType) || hasAuthCode) {
+        location.replace(`./admin.html${location.search}${location.hash}`);
+        return;
       }
+      const bypass = params.has("skipBoot") || sessionStorage.getItem("awaken.session") === "guest";
+      window.AWAKEN_ENTRY_REQUIRED = !bypass && sessionStorage.getItem("awaken.entrySequenceComplete") !== "true";
     })();
   </script>
   <link rel="icon" href="assets/icons/favicon.ico" sizes="any" />
@@ -72,6 +76,7 @@
   </script>
 </head>
 <body>
+  <iframe id="entry-sequence" class="entry-sequence" title="AWAKEN entry sequence" hidden></iframe>
   <div id="bootloader" class="bootloader" aria-live="polite">
     <div class="boot-panel">
       <img src="assets/img/awaken-logo.webp" alt="AWAKEN CULT" class="boot-logo" />
@@ -125,6 +130,29 @@
   <audio id="audio-snippet" src="assets/audio/snippet.wav" preload="auto"></audio>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script src="config.js?v=runtime-4"></script>
+  <script>
+    (() => {
+      if (!window.AWAKEN_ENTRY_REQUIRED) return;
+      const frame = document.getElementById("entry-sequence");
+      const stages = new Set(["bios", "startup", "login"]);
+      frame.hidden = false;
+      frame.src = "./awaken-system/bios.html?embedded=1";
+      addEventListener("message", (event) => {
+        if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== "awaken:entry") return;
+        if (stages.has(event.data.stage)) {
+          frame.src = `./awaken-system/${event.data.stage}.html?embedded=1`;
+          return;
+        }
+        if (event.data.stage === "complete") {
+          sessionStorage.setItem("awaken.session", "guest");
+          sessionStorage.setItem("awaken.entrySequenceComplete", "true");
+          sessionStorage.setItem("awaken.loginAt", new Date().toISOString());
+          frame.remove();
+          document.dispatchEvent(new CustomEvent("awaken:entry-complete"));
+        }
+      });
+    })();
+  </script>
   <script type="module" src="script.js?v=runtime-5"></script>
 </body>
 </html>

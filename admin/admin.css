@@ -9,6 +9,12 @@ button, a { min-height: 42px; }
 .admin-auth { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .admin-auth input { width: 150px; min-height: 36px; padding: 6px; border: 1px solid #697080; }
 .admin-auth button { min-height: 36px; }
+.admin-password-panel { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 18px 16px; color: #fff; background: #303030; border-bottom: 4px solid var(--red); }
+.admin-password-panel[hidden] { display: none; }
+.admin-password-panel p { margin: 4px 0 0; color: #d7d7d7; }
+.admin-password-setup { display: flex; gap: 7px; }
+.admin-password-setup input { width: min(230px, 28vw); min-height: 40px; padding: 7px; }
+.admin-password-setup button { min-height: 40px; color: #fff; background: var(--red); border: 1px solid #ffaaa6; }
 .admin-shell { display: grid; grid-template-columns: 190px minmax(240px, 340px) minmax(360px, 1fr); min-height: calc(100vh - 62px); }
 .admin-tabs { padding: 12px; background: #e8eaf0; border-right: 1px solid var(--line); }
 .admin-tabs button { width: 100%; margin-bottom: 7px; text-align: left; background: #fff; border: 1px solid var(--line); }
@@ -33,6 +39,9 @@ button, a { min-height: 42px; }
   .admin-header { flex-wrap: wrap; }
   .admin-auth { order: 3; width: 100%; }
   .admin-auth input { flex: 1; min-width: 100px; }
+  .admin-password-panel, .admin-password-setup { align-items: stretch; flex-direction: column; }
+  .admin-password-setup { width: 100%; }
+  .admin-password-setup input { width: 100%; }
   .admin-shell { display: block; }
   .admin-tabs { position: sticky; top: 62px; z-index: 8; display: flex; gap: 6px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .admin-tabs button { min-width: max-content; margin: 0; }

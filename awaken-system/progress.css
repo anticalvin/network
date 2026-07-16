@@ -1,0 +1,12 @@
+.loader span {
+  width: 0;
+  animation: none;
+  transform: none;
+  transition: width 0.45s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader span {
+    transition-duration: 0.01ms;
+  }
+}

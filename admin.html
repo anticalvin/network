@@ -15,9 +15,21 @@
       <input name="email" type="email" autocomplete="username" placeholder="Admin email" aria-label="Admin email" />
       <input name="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Admin password" />
       <button type="submit">Sign in</button>
+      <button id="admin-email-setup" type="button">Email setup link</button>
     </form>
     <a href="./index.html">View desktop</a>
   </header>
+  <section id="admin-password-panel" class="admin-password-panel" hidden>
+    <div>
+      <strong>Finish admin account setup</strong>
+      <p>Choose a password for this AWAKEN administrator account.</p>
+    </div>
+    <form id="admin-password-setup" class="admin-password-setup">
+      <input name="password" type="password" autocomplete="new-password" minlength="12" required placeholder="New password (12+ characters)" aria-label="New admin password" />
+      <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required placeholder="Confirm new password" aria-label="Confirm new admin password" />
+      <button type="submit">Set admin password</button>
+    </form>
+  </section>
   <main class="admin-shell">
     <nav class="admin-tabs" aria-label="Content sections">
       <button type="button" data-section="transmissions" aria-pressed="true">Transmissions</button>

@@ -11,6 +11,9 @@ import { getRuntimeConfig } from "../src/system/runtime-state.js";
 const repository = new ContentRepository();
 const supabaseClient = createSupabaseRestClient();
 const runtimeConfig = getRuntimeConfig();
+const callbackQuery = new URLSearchParams(location.search);
+const callbackHash = new URLSearchParams(location.hash.slice(1));
+let authCallbackType = callbackQuery.get("type") || callbackHash.get("type") || (callbackQuery.has("code") ? "recovery" : "");
 const authClient = globalThis.supabase?.createClient?.(runtimeConfig.supabaseUrl, runtimeConfig.supabasePublishableKey || runtimeConfig.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 let content = (await repository.getPublicContent()).content;
 let section = "transmissions";
@@ -56,32 +59,72 @@ content.featureFlags ||= structuredClone(defaultContent.featureFlags);
 content.gallerySubmissions ||= [];
 document.getElementById("admin-mode").textContent = supabaseClient.configured ? "Editorial preview / sign in to moderate" : "Local editorial preview";
 
-document.getElementById("admin-auth").addEventListener("submit", async (event) => {
+const authForm = document.getElementById("admin-auth");
+const passwordPanel = document.getElementById("admin-password-panel");
+
+function hasAdminRole(session) {
+  return session?.user?.app_metadata?.user_role === "admin";
+}
+
+function renderAuthState(session) {
+  authForm.querySelector('button[type="submit"]').textContent = session ? "Sign out" : "Sign in";
+  document.getElementById("admin-mode").textContent = session
+    ? hasAdminRole(session) ? "Authenticated / administrator" : "Authenticated / admin access pending"
+    : "Editorial preview / publishing locked";
+  if (session && ["invite", "recovery"].includes(authCallbackType)) passwordPanel.hidden = false;
+}
+
+authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!authClient) { showStatus("Supabase Auth is unavailable.", true); return; }
-  const button = event.currentTarget.querySelector("button");
   const { data: sessionData } = await authClient.auth.getSession();
   if (sessionData.session) {
     await authClient.auth.signOut();
     event.currentTarget.reset();
-    button.textContent = "Sign in";
-    document.getElementById("admin-mode").textContent = "Editorial preview / publishing locked";
+    passwordPanel.hidden = true;
+    renderAuthState(null);
     return;
   }
   const form = new FormData(event.currentTarget);
-  const { error } = await authClient.auth.signInWithPassword({ email: String(form.get("email") || ""), password: String(form.get("password") || "") });
+  const { data, error } = await authClient.auth.signInWithPassword({ email: String(form.get("email") || ""), password: String(form.get("password") || "") });
   if (error) { showStatus(error.message, true); return; }
-  button.textContent = "Sign out";
-  document.getElementById("admin-mode").textContent = "Authenticated / admin policy required";
-  showStatus("Signed in. Gallery moderation is available to admin-role accounts.");
+  renderAuthState(data.session);
+  showStatus(hasAdminRole(data.session) ? "Signed in as an AWAKEN administrator." : "Signed in, but this account does not have the admin role.", !hasAdminRole(data.session));
+});
+
+document.getElementById("admin-email-setup").addEventListener("click", async () => {
+  if (!authClient) { showStatus("Supabase Auth is unavailable.", true); return; }
+  const email = String(authForm.elements.email.value || "").trim();
+  if (!email) { showStatus("Enter the admin email address first.", true); return; }
+  const redirectTo = new URL("./admin.html", location.href).href;
+  const { error } = await authClient.auth.resetPasswordForEmail(email, { redirectTo });
+  showStatus(error ? error.message : "A secure admin setup link has been sent.", Boolean(error));
+});
+
+document.getElementById("admin-password-setup").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!authClient) { showStatus("Supabase Auth is unavailable.", true); return; }
+  const form = new FormData(event.currentTarget);
+  const password = String(form.get("password") || "");
+  if (password.length < 12) { showStatus("Use at least 12 characters for the admin password.", true); return; }
+  if (password !== String(form.get("confirmPassword") || "")) { showStatus("The passwords do not match.", true); return; }
+  const { data, error } = await authClient.auth.updateUser({ password });
+  if (error) { showStatus(error.message, true); return; }
+  authCallbackType = "";
+  passwordPanel.hidden = true;
+  history.replaceState({}, "", location.pathname);
+  event.currentTarget.reset();
+  renderAuthState(data.user ? { user: data.user } : null);
+  showStatus("Admin password set. This account is ready to sign in.");
 });
 
 if (authClient) {
+  authClient.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") authCallbackType = "recovery";
+    renderAuthState(session);
+  });
   const { data: sessionData } = await authClient.auth.getSession();
-  if (sessionData.session) {
-    document.querySelector("#admin-auth button").textContent = "Sign out";
-    document.getElementById("admin-mode").textContent = "Authenticated / admin policy required";
-  }
+  renderAuthState(sessionData.session);
 }
 
 document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", async () => {
@@ -157,6 +200,8 @@ async function saveForm(event) {
   content[section][selectedIndex] = entry;
   if (section === "gallerySubmissions") {
     if (!authClient) { showStatus("Sign in with a Supabase admin account to moderate submissions.", true); return; }
+    const { data: sessionData } = await authClient.auth.getSession();
+    if (!hasAdminRole(sessionData.session)) { showStatus("This account does not have the admin role.", true); return; }
     const { error } = await authClient.from("gallery_submissions").update({ moderation_status: entry.moderationStatus, reviewed_at: new Date().toISOString(), atlas_entity_id: entry.atlasEntityId || null }).eq("id", entry.id);
     if (error) { showStatus(error.message, true); return; }
     await loadGallerySubmissions();
@@ -177,6 +222,7 @@ async function loadGallerySubmissions() {
   if (!authClient) { content.gallerySubmissions = []; showStatus("Supabase Auth is unavailable.", true); return; }
   const { data: sessionData } = await authClient.auth.getSession();
   if (!sessionData.session) { content.gallerySubmissions = []; showStatus("Sign in to load Gallery submissions.", true); return; }
+  if (!hasAdminRole(sessionData.session)) { content.gallerySubmissions = []; showStatus("This account does not have the admin role.", true); return; }
   const { data, error } = await authClient.from("gallery_submissions").select("id,title,creator,image_path,mime_type,byte_size,width,height,atlas_entity_id,moderation_status,created_at").order("created_at", { ascending: false }).limit(100);
   if (error) { content.gallerySubmissions = []; showStatus(error.message, true); return; }
   content.gallerySubmissions = data.map((row) => ({ id: row.id, title: row.title, creator: row.creator, imagePath: row.image_path, mimeType: row.mime_type, byteSize: row.byte_size, width: row.width, height: row.height, atlasEntityId: row.atlas_entity_id || "", moderationStatus: row.moderation_status, createdAt: row.created_at }));

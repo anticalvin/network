@@ -274,6 +274,7 @@ async function init() {
   const loaded = await repository.getPublicContent();
   managedContent = loaded.content;
   document.getElementById("boot-skip").addEventListener("click", finishBoot);
+  document.addEventListener("awaken:entry-complete", finishBoot, { once: true });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && bootloader.style.display !== "none") finishBoot();
     if (event.key === "Escape") {

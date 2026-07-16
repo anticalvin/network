@@ -61,15 +61,23 @@ document.getElementById("admin-mode").textContent = supabaseClient.configured ? 
 
 const authForm = document.getElementById("admin-auth");
 const passwordPanel = document.getElementById("admin-password-panel");
+const signInButton = authForm.querySelector('button[type="submit"]');
+const signOutButton = document.getElementById("admin-sign-out");
+const publishButton = document.getElementById("admin-publish");
 
 function hasAdminRole(session) {
   return session?.user?.app_metadata?.user_role === "admin";
 }
 
 function renderAuthState(session) {
-  authForm.querySelector('button[type="submit"]').textContent = session ? "Sign out" : "Sign in";
+  const isAdmin = hasAdminRole(session);
+  signInButton.hidden = Boolean(session);
+  signOutButton.hidden = !session;
+  publishButton.hidden = !isAdmin;
+  authForm.elements.email.disabled = Boolean(session);
+  authForm.elements.password.disabled = Boolean(session);
   document.getElementById("admin-mode").textContent = session
-    ? hasAdminRole(session) ? "Authenticated / administrator" : "Authenticated / admin access pending"
+    ? isAdmin ? "Authenticated / administrator" : "Authenticated / admin access pending"
     : "Editorial preview / publishing locked";
   if (session && ["invite", "recovery"].includes(authCallbackType)) passwordPanel.hidden = false;
 }
@@ -77,19 +85,59 @@ function renderAuthState(session) {
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!authClient) { showStatus("Supabase Auth is unavailable.", true); return; }
-  const { data: sessionData } = await authClient.auth.getSession();
-  if (sessionData.session) {
-    await authClient.auth.signOut();
-    event.currentTarget.reset();
-    passwordPanel.hidden = true;
-    renderAuthState(null);
-    return;
-  }
   const form = new FormData(event.currentTarget);
-  const { data, error } = await authClient.auth.signInWithPassword({ email: String(form.get("email") || ""), password: String(form.get("password") || "") });
-  if (error) { showStatus(error.message, true); return; }
-  renderAuthState(data.session);
-  showStatus(hasAdminRole(data.session) ? "Signed in as an AWAKEN administrator." : "Signed in, but this account does not have the admin role.", !hasAdminRole(data.session));
+  signInButton.disabled = true;
+  signInButton.textContent = "Signing in...";
+  try {
+    const { data, error } = await authClient.auth.signInWithPassword({ email: String(form.get("email") || "").trim(), password: String(form.get("password") || "") });
+    if (error) { showStatus(error.message, true); return; }
+    const { data: refreshed } = await authClient.auth.refreshSession();
+    const session = refreshed.session || data.session;
+    renderAuthState(session);
+    showStatus(hasAdminRole(session) ? "Signed in as an AWAKEN administrator." : "Signed in, but this account does not have the admin role.", !hasAdminRole(session));
+  } catch (error) {
+    showStatus(error?.message || "Sign in could not be completed.", true);
+  } finally {
+    signInButton.disabled = false;
+    signInButton.textContent = "Sign in";
+  }
+});
+
+signOutButton.addEventListener("click", async () => {
+  if (!authClient) return;
+  await authClient.auth.signOut();
+  authForm.reset();
+  passwordPanel.hidden = true;
+  renderAuthState(null);
+  showStatus("Signed out.");
+});
+
+publishButton.addEventListener("click", async () => {
+  if (!authClient) { showStatus("Supabase Auth is unavailable.", true); return; }
+  const { data: sessionData } = await authClient.auth.getSession();
+  if (!hasAdminRole(sessionData.session)) { showStatus("Sign in as an administrator to publish.", true); return; }
+  publishButton.disabled = true;
+  publishButton.textContent = "Publishing...";
+  try {
+    const payload = structuredClone(content);
+    delete payload.gallerySubmissions;
+    payload.updatedAt = new Date().toISOString();
+    const { error } = await authClient.from("network_content_snapshots").upsert({
+      id: "live",
+      payload,
+      published: true,
+      published_at: payload.updatedAt,
+      updated_by: sessionData.session.user.id
+    });
+    if (error) { showStatus(error.message, true); return; }
+    repository.clearLocalDraft();
+    showStatus("Published to the live AWAKEN NETWORK.");
+  } catch (error) {
+    showStatus(error?.message || "Publishing could not be completed.", true);
+  } finally {
+    publishButton.disabled = false;
+    publishButton.textContent = "Publish NETWORK";
+  }
 });
 
 document.getElementById("admin-email-setup").addEventListener("click", async () => {

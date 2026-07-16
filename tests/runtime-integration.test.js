@@ -6,6 +6,7 @@ import { recoverFragments } from "../src/domain/recovery.js";
 import { advanceIntrusion, cancelIntrusion, createIntrusionState } from "../src/domain/intrusion.js";
 import { createGalleryProject, validateGalleryProject } from "../src/domain/gallery-project.js";
 import { mediaProviderEmbed } from "../src/domain/media.js";
+import { readFile } from "node:fs/promises";
 
 const context = { now: 200_000, sessionStartedAt: 0, context: "desktop", records: {}, openCount: 0, maximumOpen: 2 };
 
@@ -46,4 +47,21 @@ test("provider embeds accept verified shapes and reject impostors", () => {
   assert.match(mediaProviderEmbed("apple", "https://music.apple.com/za/album/xp/123"), /^https:\/\/embed\.music\.apple\.com/);
   assert.equal(mediaProviderEmbed("spotify", "https://example.com/track/123"), null);
   assert.match(mediaProviderEmbed("soundcloud", "https://soundcloud.com/awakencult"), /^https:\/\/w\.soundcloud\.com/);
+});
+
+test("the XP runtime waits for the separate entry sequence before initializing", async () => {
+  const source = await readFile(new URL("../script.js", import.meta.url), "utf8");
+  assert.match(source, /if \(window\.AWAKEN_ENTRY_REQUIRED\)[\s\S]*awaken:entry-complete[\s\S]*return;/);
+  assert.match(source, /initializeDesktop\(\{ entryComplete: true \}\)/);
+  assert.doesNotMatch(source, /awaken:entry-complete", finishBoot/);
+});
+
+test("admin authentication keeps sign in and sign out as explicit actions", async () => {
+  const html = await readFile(new URL("../admin.html", import.meta.url), "utf8");
+  const source = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="admin-sign-out"/);
+  assert.match(html, /id="admin-publish"/);
+  assert.doesNotMatch(html, /defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase/);
+  assert.match(source, /signInWithPassword/);
+  assert.match(source, /network_content_snapshots/);
 });

@@ -15,7 +15,9 @@
       <input name="email" type="email" autocomplete="username" placeholder="Admin email" aria-label="Admin email" />
       <input name="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Admin password" />
       <button type="submit">Sign in</button>
+      <button id="admin-sign-out" type="button" hidden>Sign out</button>
       <button id="admin-email-setup" type="button">Email setup link</button>
+      <button id="admin-publish" type="button" hidden>Publish NETWORK</button>
     </form>
     <a href="./index.html">View desktop</a>
   </header>
@@ -61,7 +63,7 @@
   </main>
   <div id="admin-status" class="admin-status" role="status" hidden></div>
   <script src="config.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script type="module" src="admin/admin.js"></script>
 </body>
 </html>

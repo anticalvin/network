@@ -4,18 +4,24 @@ const CACHE_KEY = "awaken.content-cache";
 const OVERRIDE_KEY = "awaken.content-admin-draft";
 
 export class ContentRepository {
-  constructor({ endpoint = globalThis.AWAKEN_CONFIG?.contentEndpoint, storage = localStorage } = {}) {
+  constructor({ endpoint = globalThis.AWAKEN_CONFIG?.contentEndpoint, storage = localStorage, fetcher = globalThis.fetch?.bind(globalThis), config = globalThis.AWAKEN_CONFIG || {} } = {}) {
     this.endpoint = endpoint;
     this.storage = storage;
+    this.fetcher = fetcher;
+    this.config = config;
   }
 
   async getPublicContent() {
-    const local = mergeContent(this.read(OVERRIDE_KEY) || this.read(CACHE_KEY) || defaultContent);
-    if (!this.endpoint) return { content: local, source: this.read(OVERRIDE_KEY) ? "admin-local" : "bundled" };
+    const draft = this.read(OVERRIDE_KEY);
+    const local = mergeContent(draft || this.read(CACHE_KEY) || defaultContent);
+    if (draft) return { content: local, source: "admin-local" };
+    const request = this.remoteRequest();
+    if (!request) return { content: local, source: "bundled" };
     try {
-      const response = await fetch(this.endpoint, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(2500) });
+      const response = await this.fetcher(request.url, { headers: request.headers, signal: AbortSignal.timeout(2500) });
       if (!response.ok) throw new Error(`Content request failed: ${response.status}`);
-      const remote = mergeContent(await response.json());
+      const payload = await response.json();
+      const remote = mergeContent(this.endpoint ? payload : payload?.[0]?.payload);
       this.storage.setItem(CACHE_KEY, JSON.stringify(remote));
       return { content: remote, source: "remote" };
     } catch {
@@ -31,6 +37,17 @@ export class ContentRepository {
 
   clearLocalDraft() { this.storage.removeItem(OVERRIDE_KEY); }
   read(key) { try { return JSON.parse(this.storage.getItem(key)); } catch { return null; } }
+
+  remoteRequest() {
+    if (this.endpoint && this.fetcher) return { url: this.endpoint, headers: { Accept: "application/json" } };
+    const base = String(this.config.supabaseUrl || "").replace(/\/+$/, "");
+    const key = this.config.supabasePublishableKey || this.config.supabaseAnonKey;
+    if (!base || !key || !this.fetcher) return null;
+    return {
+      url: `${base}/rest/v1/network_content_snapshots?id=eq.live&published=eq.true&select=payload&limit=1`,
+      headers: { Accept: "application/json", apikey: key, Authorization: `Bearer ${key}` }
+    };
+  }
 }
 
 function mergeContent(value) {

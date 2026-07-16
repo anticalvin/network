@@ -30,6 +30,7 @@
       }
       const bypass = params.has("skipBoot") || sessionStorage.getItem("awaken.session") === "guest";
       window.AWAKEN_ENTRY_REQUIRED = !bypass && sessionStorage.getItem("awaken.entrySequenceComplete") !== "true";
+      document.documentElement.classList.toggle("entry-required", window.AWAKEN_ENTRY_REQUIRED);
     })();
   </script>
   <link rel="icon" href="assets/icons/favicon.ico" sizes="any" />
@@ -148,6 +149,7 @@
           sessionStorage.setItem("awaken.entrySequenceComplete", "true");
           sessionStorage.setItem("awaken.loginAt", new Date().toISOString());
           frame.remove();
+          document.documentElement.classList.remove("entry-required");
           document.dispatchEvent(new CustomEvent("awaken:entry-complete"));
         }
       });

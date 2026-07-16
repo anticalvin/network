@@ -203,6 +203,12 @@ button {
   font-family: "Courier New", monospace;
 }
 
+.entry-required #bootloader,
+.entry-required #os-container,
+.entry-required #audio-snippet {
+  display: none !important;
+}
+
 .boot-panel {
   width: min(620px, calc(100vw - 32px));
   border: 1px solid #3a3a3a;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyNetworkUrl, createNetworkNavigator, openExternalSecurely } from "../src/system/network-navigation.js";
+import { classifyNetworkUrl, createNetworkNavigator, openExternalSecurely, resolveNetworkInput } from "../src/system/network-navigation.js";
 
 const baseUrl = "https://anticalvin.github.io/network/index.html?skipBoot=1";
 
@@ -83,4 +83,9 @@ test("native fallback always carries noopener and noreferrer", () => {
   assert.deepEqual(calls[0], ["https://example.com/path", "_blank", "noopener,noreferrer"]);
   assert.equal(opened.opener, null);
   assert.equal(openExternalSecurely("javascript:alert(1)", () => { throw new Error("must not open"); }), false);
+});
+
+test("address bar accepts hostnames and turns plain language into web search", () => {
+  assert.equal(resolveNetworkInput("awakencult.com/archive"), "https://awakencult.com/archive");
+  assert.equal(resolveNetworkInput("AWAKEN Johannesburg archive"), "https://www.google.com/search?q=AWAKEN%20Johannesburg%20archive");
 });

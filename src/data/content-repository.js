@@ -1,4 +1,4 @@
-import { defaultContent } from "../content/default-content.js";
+import { defaultContent } from "../content/default-content.js?v=runtime-7";
 
 const CACHE_KEY = "awaken.content-cache";
 const OVERRIDE_KEY = "awaken.content-admin-draft";
@@ -59,6 +59,17 @@ function mergeContent(value) {
     links: Array.isArray(candidate.links) ? candidate.links : defaultContent.links,
     themes: Array.isArray(candidate.themes) ? candidate.themes : defaultContent.themes,
     transmissions: Array.isArray(candidate.transmissions) ? candidate.transmissions : defaultContent.transmissions,
-    fragments: Array.isArray(candidate.fragments) ? candidate.fragments : defaultContent.fragments
+    fragments: Array.isArray(candidate.fragments) ? candidate.fragments : defaultContent.fragments,
+    filesystem: mergeRecords(defaultContent.filesystem, candidate.filesystem),
+    networkSites: mergeRecords(defaultContent.networkSites, candidate.networkSites),
+    ads: mergeRecords(defaultContent.ads, candidate.ads),
+    featureFlags: mergeRecords(defaultContent.featureFlags, candidate.featureFlags)
   };
+}
+
+function mergeRecords(base = [], overrides) {
+  if (!Array.isArray(overrides)) return structuredClone(base);
+  const byId = new Map(base.map((entry) => [entry.id, { ...entry }]));
+  overrides.forEach((entry) => { if (entry?.id) byId.set(entry.id, { ...(byId.get(entry.id) || {}), ...entry }); });
+  return [...byId.values()];
 }

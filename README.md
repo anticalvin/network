@@ -14,14 +14,15 @@ AWAKEN Atlas now provides the fail-closed canonical knowledge layer beneath Expl
 - Classic wallpaper themes in Settings and `A:\Wallpapers`: AWAKEN Red, XP Teal, XP Blue, XP Olive, XP Silver, and Black.
 - Top status bar, bottom XP-style taskbar, Start menu, and desktop icons.
 - Window manager with close/minimize, draggable desktop windows, and mobile full-screen windows.
-- Versioned local Memory Card with 8MB block presentation, explicit save feedback, persistent unlocks, remove, reset, and persistence.
+- Versioned local Memory Card with 8MB block presentation, type-aware Open actions, explicit save feedback, persistent unlocks, remove, reset, and persistence.
+- Recoverable Trash app for popup signals, with Open + Save, Restore, and permanent Delete actions.
 - Scheduled, dismissible, frequency-limited transmission windows.
 - Managed content repository with bundled, cached, local-preview, and optional remote paths.
 - Configurable image icon manifest with safe text fallbacks.
 - Normalized local, remote, Supabase Storage, and ImgBB media sources.
 - Phone-friendly authenticated content editor at `/admin.html` with local draft state, verified Supabase publication receipts, and live NETWORK publishing.
 - Touch-optimized AWAKEN Paint with mobile tool drawer, fit, zoom, and explicit pan mode.
-- Shop app with a Windows 3D Pipes-inspired in-development screen.
+- Shop app with a Windows 3D Pipes-inspired Coming Soon screen and progressive construction signal.
 - Supabase migrations with structured content, media, virtual filesystem, campaigns, Discord XP mirror tables, storage buckets, Realtime publication setup, and RLS.
 - MIND desktop app with a bounded initial XP fetch, Supabase Realtime updates, reconnect reconciliation, deduplication, and deliberate loading/offline/error states.
 - MIND Discord bot bridge foundation for server-side #xp mirroring.
@@ -31,7 +32,8 @@ AWAKEN Atlas now provides the fail-closed canonical knowledge layer beneath Expl
 - Explorer with virtual `A:\` paths.
 - Package/project hubs for XP, HATED, XPV2, NEW SWAG WHO DIS?, CENTRAL AFRICAN TIME, State Of Mind, and NOISE.
 - Media Player app with Apple Music and SoundCloud links.
-- Community and LIVE INTERNET apps with real AWAKEN links.
+- Community and LIVE INTERNET apps with real AWAKEN links, safe address/search routing, and admin-managed fictional NETWORK sites.
+- Public-shell compatibility fallback for embedded social browsers; the admin-only Supabase SDK is no longer loaded on the public desktop.
 - Terminal commands: `help`, `dir`, `tree`, `cd`, `open`, `find`, `type readme`, `scan`, `recover`, `whoami`, `version`, `discord`.
 
 ## Local Preview
@@ -48,7 +50,7 @@ http://127.0.0.1:5179/
 
 ## Content Updates
 
-Edit managed defaults in `src/content/default-content.js` and icon artwork in `src/content/icon-manifest.js`. Shell-specific catalog packages currently remain in `script.js`.
+Edit managed defaults in `src/content/default-content.js` and icon artwork in `src/content/icon-manifest.js`. Filesystem records, popup copy, feature flags, and NETWORK Sites can also be edited and published from `/admin.html`. Shell-specific catalog packages currently remain in `script.js`.
 
 - `LINKS` for official URLs.
 - `PROJECTS` for catalog/package metadata.

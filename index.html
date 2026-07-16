@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>AWAKEN CULT — NETWORK OS</title>
   <meta name="description" content="Enter the AWAKEN CULT NETWORK OS: music, archive, community projects, and connected creative tools." />
   <meta name="robots" content="index,follow,max-image-preview:large" />
@@ -38,7 +38,7 @@
   <link rel="icon" href="assets/icons/favicon-96x96.png" type="image/png" sizes="96x96" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="site.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=runtime-5" />
+  <link rel="stylesheet" href="styles.css?v=runtime-7" />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -116,7 +116,7 @@
 
     <footer id="taskbar" class="taskbar">
       <button id="start-button" class="start-button" type="button" aria-haspopup="menu" aria-expanded="false">
-        <span class="start-dot"><img src="https://i.ibb.co/gFPrR060/awaken-eye-black.webp" alt="" /></span>
+        <span class="start-dot"><img src="assets/img/smiley-black.png" alt="" /></span>
         Start
       </button>
       <div id="task-buttons" class="task-buttons" aria-label="Open windows"></div>
@@ -129,7 +129,6 @@
   </main>
 
   <audio id="audio-snippet" src="assets/audio/snippet.wav" preload="auto"></audio>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script src="config.js?v=runtime-4"></script>
   <script>
     (() => {
@@ -137,26 +136,42 @@
       const frame = document.getElementById("entry-sequence");
       const stages = new Set(["bios", "startup", "login"]);
       frame.hidden = false;
+      let completed = false;
+      let entryWatchdog = 0;
+      const armEntryWatchdog = () => {
+        clearTimeout(entryWatchdog);
+        entryWatchdog = setTimeout(finishEntry, 12000);
+      };
+      const finishEntry = () => {
+        if (completed) return;
+        completed = true;
+        clearTimeout(entryWatchdog);
+        sessionStorage.setItem("awaken.session", "guest");
+        sessionStorage.setItem("awaken.entrySequenceComplete", "true");
+        sessionStorage.setItem("awaken.loginAt", new Date().toISOString());
+        frame.remove();
+        document.documentElement.classList.remove("entry-required");
+        document.dispatchEvent(new CustomEvent("awaken:entry-complete"));
+      };
       const showPowerBeat = sessionStorage.getItem("awaken.powerBeatSeen") !== "true";
       sessionStorage.setItem("awaken.powerBeatSeen", "true");
-      frame.src = showPowerBeat ? "./awaken-system/power.html?embedded=1" : "./awaken-system/bios.html?embedded=1";
+      frame.src = showPowerBeat ? "./awaken-system/power.html?embedded=1&v=runtime-7" : "./awaken-system/bios.html?embedded=1&v=runtime-7";
+      armEntryWatchdog();
+      frame.addEventListener("error", finishEntry, { once: true });
       addEventListener("message", (event) => {
         if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== "awaken:entry") return;
         if (stages.has(event.data.stage)) {
-          frame.src = `./awaken-system/${event.data.stage}.html?embedded=1`;
+          clearTimeout(entryWatchdog);
+          frame.src = `./awaken-system/${event.data.stage}.html?embedded=1&v=runtime-7`;
+          if (event.data.stage !== "login") armEntryWatchdog();
           return;
         }
         if (event.data.stage === "complete") {
-          sessionStorage.setItem("awaken.session", "guest");
-          sessionStorage.setItem("awaken.entrySequenceComplete", "true");
-          sessionStorage.setItem("awaken.loginAt", new Date().toISOString());
-          frame.remove();
-          document.documentElement.classList.remove("entry-required");
-          document.dispatchEvent(new CustomEvent("awaken:entry-complete"));
+          finishEntry();
         }
       });
     })();
   </script>
-  <script type="module" src="script.js?v=runtime-5"></script>
+  <script type="module" src="script.js?v=runtime-7"></script>
 </body>
 </html>

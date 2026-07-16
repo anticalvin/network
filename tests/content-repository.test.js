@@ -42,3 +42,15 @@ test("an admin local preview remains private and wins over the live snapshot", a
   assert.equal(result.content.links[0].id, "preview");
   assert.equal(fetched, false);
 });
+
+test("new bundled managed sections merge safely with an older live snapshot", async () => {
+  const repository = new ContentRepository({
+    storage: storage(),
+    config: { supabaseUrl: "https://example.supabase.co", supabasePublishableKey: "public-key" },
+    fetcher: async () => ({ ok: true, async json() { return [{ payload: { filesystem: [{ id: "custom", name: "CUSTOM.txt", path: "A:\\CUSTOM.txt", nodeType: "document", visibility: "public", status: "published" }] } }]; } })
+  });
+  const result = await repository.getPublicContent();
+  assert.ok(result.content.filesystem.some((entry) => entry.id === "universe-folder"));
+  assert.ok(result.content.filesystem.some((entry) => entry.id === "custom"));
+  assert.ok(result.content.networkSites.some((entry) => entry.id === "the-feed"));
+});

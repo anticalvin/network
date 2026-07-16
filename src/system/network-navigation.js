@@ -99,6 +99,14 @@ export function openNetworkUrl(url, options) {
   return defaultNavigator.open(url, options);
 }
 
+export function resolveNetworkInput(value) {
+  const input = String(value || "").trim();
+  if (!input) return "";
+  if (/^(https?:|\/|\.\/|\.\.\/)/i.test(input)) return input;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#].*)?$/i.test(input)) return `https://${input}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+}
+
 export function bindNetworkUrlElements(container, opener = openNetworkUrl) {
   if (!container?.addEventListener) return () => {};
   const onClick = (event) => {
@@ -266,7 +274,7 @@ function mountNetworkBrowser(container, context) {
   }
 
   function submitAddress() {
-    const next = context.classify(address.value);
+    const next = context.classify(resolveNetworkInput(address.value));
     if (["invalid", "unsafe"].includes(next.kind) || next.bypass) { renderError(next.reason); return; }
     navigate(next, { ...currentOptions, title: hostnameTitle(next.hostname), source: "address-bar" });
   }

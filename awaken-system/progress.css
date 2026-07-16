@@ -1,8 +1,13 @@
 .loader span {
   width: 0;
-  animation: none;
   transform: none;
-  transition: width 0.45s linear;
+  background-size: 44px 100%;
+  animation: startup-stripes 0.8s linear infinite;
+  transition: width 0.48s cubic-bezier(0.22, 0.75, 0.2, 1);
+}
+
+@keyframes startup-stripes {
+  to { background-position: 44px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

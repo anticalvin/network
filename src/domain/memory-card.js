@@ -47,6 +47,27 @@ export function setDismissal(card, id, record) {
   return { ...card, dismissals: { ...card.dismissals, [id]: record } };
 }
 
+export function trashItems(card) {
+  return Array.isArray(card?.preferences?.trash) ? card.preferences.trash.filter(validItem) : [];
+}
+
+export function moveToTrash(card, item) {
+  if (!validItem(item)) throw new Error("Trash item requires id, type, and title.");
+  const previous = trashItems(card);
+  const trashed = { ...item, trashedAt: item.trashedAt || new Date().toISOString() };
+  return {
+    ...card,
+    preferences: {
+      ...card.preferences,
+      trash: [trashed, ...previous.filter((entry) => !(entry.id === item.id && entry.type === item.type))].slice(0, 50)
+    }
+  };
+}
+
+export function removeTrashItem(card, type, id) {
+  return { ...card, preferences: { ...card.preferences, trash: trashItems(card).filter((item) => !(item.type === type && item.id === id)) } };
+}
+
 function validItem(item) {
   return Boolean(item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string");
 }

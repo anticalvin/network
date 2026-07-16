@@ -718,6 +718,159 @@ button {
   color: #5b6474;
 }
 
+.network-browser-window {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  padding: 0;
+  overflow: hidden;
+  background: #d7dce7;
+}
+
+.network-browser-toolbar {
+  display: grid;
+  grid-template-columns: repeat(5, auto) minmax(160px, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+  padding: 6px;
+  border-bottom: 1px solid #8b96aa;
+  background: linear-gradient(#f8f8f8, #d7dce7);
+}
+
+.network-browser-toolbar button {
+  min-width: 54px;
+  min-height: 30px;
+  padding: 4px 7px;
+}
+
+.network-browser-toolbar button:disabled {
+  color: #858b96;
+  background: #d8dce5;
+}
+
+.network-browser-address {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 4px 7px;
+  border: 1px solid #7d899f;
+  background: #fff;
+  font: 13px Consolas, "Courier New", monospace;
+}
+
+.network-browser-status {
+  min-height: 29px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid #aeb6c4;
+  background: #eef1f6;
+  font-size: 12px;
+}
+
+.network-browser-domain {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-browser.is-loading .network-browser-state::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 2px solid #9ca8ba;
+  border-top-color: #245edb;
+  border-radius: 50%;
+  animation: network-browser-spin .8s linear infinite;
+}
+
+.network-browser-viewport,
+.network-browser-frame-wrap {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+}
+
+.network-browser-frame-wrap {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.network-browser-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  border: 0;
+  background: #eef1f6;
+}
+
+.network-browser-frame-help {
+  min-height: 34px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid #aeb6c4;
+  background: #eef1f6;
+  font-size: 11px;
+}
+
+.network-browser-warning,
+.network-browser-error,
+.network-browser-home,
+.network-browser-stopped {
+  width: min(620px, calc(100% - 28px));
+  margin: 22px auto;
+  padding: 16px;
+  border: 1px solid #8792a5;
+  background: #f6f7fa;
+  box-shadow: 2px 2px 0 #c6ccd8;
+}
+
+.network-browser-warning h2,
+.network-browser-error h2,
+.network-browser-home h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.network-browser-detail {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.network-browser-detail dt {
+  font-weight: 700;
+}
+
+.network-browser-detail dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.network-browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+@keyframes network-browser-spin {
+  to { transform: rotate(360deg); }
+}
+
 .terminal {
   display: flex;
   flex-direction: column;
@@ -1281,6 +1434,30 @@ html[data-reduced-motion="true"] *::after {
 
   .window-controls button {
     width: 38px;
+  }
+
+  .network-browser-toolbar {
+    grid-template-columns: repeat(5, 1fr) auto;
+  }
+
+  .network-browser-toolbar button {
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  .network-browser-address {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .network-browser-toolbar button:last-child {
+    grid-column: 6;
+    grid-row: 1;
+  }
+
+  .network-browser-frame-help {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .transmission-layer {

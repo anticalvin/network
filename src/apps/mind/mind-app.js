@@ -1,6 +1,8 @@
+import { bindNetworkUrlElements, openNetworkUrl } from "../../system/network-navigation.js";
+
 const PAGE_SIZE = 40;
 
-export function renderMindApp(container, { repository, inviteUrl }) {
+export function renderMindApp(container, { repository, inviteUrl, openUrl = openNetworkUrl }) {
   container.innerHTML = `
     <div class="mind-app">
       <div class="mind-toolbar">
@@ -22,6 +24,7 @@ export function renderMindApp(container, { repository, inviteUrl }) {
   let messages = [];
   let disposed = false;
   let loading = false;
+  const unbindNetworkLinks = bindNetworkUrlElements(container, openUrl);
 
   const render = ({ preserveScroll = false } = {}) => {
     const previousHeight = log.scrollHeight;
@@ -86,7 +89,7 @@ export function renderMindApp(container, { repository, inviteUrl }) {
 
   container.querySelector("[data-refresh]").addEventListener("click", () => void load({ reconcile: true }));
   older.addEventListener("click", () => void load({ before: messages[0]?.createdAt }));
-  container.querySelector("[data-discord]").addEventListener("click", () => window.open(inviteUrl, "_blank", "noopener,noreferrer"));
+  container.querySelector("[data-discord]").addEventListener("click", () => openUrl(inviteUrl, { title: "AWAKEN Discord", source: "mind" }));
   document.addEventListener("visibilitychange", reconcile);
   window.addEventListener("online", updateNetworkState);
   window.addEventListener("offline", updateNetworkState);
@@ -94,6 +97,7 @@ export function renderMindApp(container, { repository, inviteUrl }) {
 
   return () => {
     disposed = true;
+    unbindNetworkLinks();
     unsubscribe();
     document.removeEventListener("visibilitychange", reconcile);
     window.removeEventListener("online", updateNetworkState);
@@ -140,9 +144,9 @@ function attachmentMarkup(attachment) {
   if (!url) return "";
   const label = escapeHtml(attachment.name || "Attachment");
   if (String(attachment.contentType || "").startsWith("image/")) {
-    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="${label}" loading="lazy" /></a>`;
+    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-network-url="${escapeHtml(url)}" data-network-title="${label}"><img src="${escapeHtml(url)}" alt="${label}" loading="lazy" /></a>`;
   }
-  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-network-url="${escapeHtml(url)}" data-network-title="${label}">${label}</a>`;
 }
 
 function safeHttpsUrl(value) {

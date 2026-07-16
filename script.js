@@ -23,6 +23,7 @@ import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
+import { configureNetworkNavigation, openNetworkUrl } from "./src/system/network-navigation.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -255,6 +256,14 @@ const osContainer = document.getElementById("os-container");
 const workArea = document.getElementById("work-area");
 const startMenu = document.getElementById("start-menu");
 const taskButtons = document.getElementById("task-buttons");
+
+configureNetworkNavigation({
+  createWindow,
+  focusExistingWindow,
+  baseUrl: () => location.href,
+  nativeOpen: globalThis.open?.bind(globalThis),
+  copyText: async (value) => { await navigator.clipboard.writeText(value); return true; }
+});
 
 async function init() {
   memoryCard = loadMemoryCard();
@@ -741,7 +750,7 @@ function openAtlasEntity(entity) {
       ${externalUrl ? `<button type="button" data-atlas-source>Open official source</button>` : ""}
       <h3>Related</h3>${related}
     </section>`;
-  content.querySelector("[data-atlas-source]")?.addEventListener("click", () => window.open(externalUrl, "_blank", "noopener,noreferrer"));
+  content.querySelector("[data-atlas-source]")?.addEventListener("click", () => openNetworkUrl(externalUrl, { title: `${entity.name} official source`, source: "atlas" }));
 }
 
 function openPackage(id) {
@@ -781,12 +790,12 @@ function openPackage(id) {
       </section>
     </div>
   `;
-  content.querySelector("[data-open-link]").addEventListener("click", () => window.open(project.url, "_blank", "noopener,noreferrer"));
+  content.querySelector("[data-open-link]").addEventListener("click", () => openNetworkUrl(project.url, { title: `${project.title} source`, source: "package" }));
   content.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: project.id, type: "archive", title: project.title, path: project.path, url: project.url }));
   content.querySelector(".card img")?.addEventListener("error", (event) => { event.currentTarget.hidden = true; });
   content.querySelector("[data-package-action='readme']").addEventListener("click", () => openText(`${project.title} README`, project.readme));
   content.querySelector("[data-package-action='artwork']").addEventListener("click", () => openImage({ name: `${project.title} artwork`, src: project.cover, path: project.path }));
-  content.querySelector("[data-package-action='music']").addEventListener("click", () => window.open(project.url, "_blank", "noopener,noreferrer"));
+  content.querySelector("[data-package-action='music']").addEventListener("click", () => openNetworkUrl(project.url, { title: `${project.title} music`, source: "package-music" }));
   content.querySelectorAll("[data-contributor]").forEach((button) => button.addEventListener("click", () => openTeamProfile(TEAM_MEMBERS.find((person) => person.slug === button.dataset.contributor))));
 }
 
@@ -866,7 +875,7 @@ function mergeGalleryFiles() {
 function openMind() {
   if (focusExistingWindow("mind")) return;
   const { win, content } = createWindow("MIND - XP CHANNEL", { wide: true, className: "mind-window", appId: "mind" });
-  const cleanup = renderMindApp(content, { repository: communityRepository, inviteUrl: LINKS.discord });
+  const cleanup = renderMindApp(content, { repository: communityRepository, inviteUrl: LINKS.discord, openUrl: openNetworkUrl });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
@@ -882,7 +891,7 @@ function openCommunity() {
     ${SOCIALS.slice(4, 8).map((item) => portalMarkup(item)).join("")}
   `;
   content.querySelector("[data-mind]").addEventListener("click", openMind);
-  content.querySelector("[data-discord]").addEventListener("click", () => window.open(LINKS.discord, "_blank", "noopener,noreferrer"));
+  content.querySelector("[data-discord]").addEventListener("click", () => openNetworkUrl(LINKS.discord, { title: "AWAKEN Discord", source: "community" }));
   bindPortalButtons(content);
 }
 
@@ -999,12 +1008,12 @@ function openLiveInternet() {
 }
 
 function portalMarkup(item) {
-  return `<div class="portal-row"><div><strong>${item.title}</strong><small>${item.detail}</small></div><button type="button" data-url="${item.url}">Open</button></div>`;
+  return `<div class="portal-row"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></div><button type="button" data-url="${escapeHtml(item.url)}" data-network-url="${escapeHtml(item.url)}">Open</button></div>`;
 }
 
 function bindPortalButtons(container) {
   container.querySelectorAll("[data-url]").forEach((button) => {
-    button.addEventListener("click", () => window.open(button.dataset.url, "_blank", "noopener,noreferrer"));
+    button.addEventListener("click", () => openNetworkUrl(button.dataset.url, { title: button.closest(".portal-row")?.querySelector("strong")?.textContent || "Internet destination", source: "portal" }));
   });
 }
 
@@ -1015,10 +1024,10 @@ function openPortal(title, url, detail) {
   content.innerHTML = `
     <div class="portal-row">
       <div><strong>${title}</strong><small>${detail}</small></div>
-      <button type="button" data-url="${url}">Open</button>
+      <button type="button" data-url="${escapeHtml(url)}" data-network-url="${escapeHtml(url)}">Open</button>
       <button type="button" data-save-link>Save</button>
     </div>
-    <p>${url}</p>
+    <p>${escapeHtml(url)}</p>
   `;
   bindPortalButtons(content);
   content.querySelector("[data-save-link]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: url, type: "link", title, url }));
@@ -1215,7 +1224,7 @@ function showTransmission(item) {
   const layer = document.getElementById("transmission-layer");
   const panel = document.createElement("aside");
   panel.className = "transmission";
-  panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Dismiss">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open external link</button><button type="button" data-save>Save</button></div>`;
+  panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Dismiss">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open in AWAKEN Internet</button><button type="button" data-save>Save</button></div>`;
   const dismiss = () => {
     memoryCard = saveMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }));
     awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_DISMISSED, { id: item.id });
@@ -1224,7 +1233,7 @@ function showTransmission(item) {
   panel.querySelector("[aria-label='Dismiss']").addEventListener("click", dismiss);
   panel.querySelector("[data-open]").addEventListener("click", () => {
     awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_ACTION, { id: item.id, action: "open", destinationUrl: item.destinationUrl });
-    window.open(item.destinationUrl, "_blank", "noopener,noreferrer");
+    openNetworkUrl(item.destinationUrl, { title: item.publicTitle, source: "transmission" });
   });
   panel.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: item.id, type: "transmission", title: item.publicTitle, url: item.destinationUrl }));
   layer.appendChild(panel);
@@ -1287,7 +1296,7 @@ function openSettings() {
     memoryCard = saveMemoryCard(emptyMemoryCard());
     content.querySelector("[data-clear-memory]").textContent = "Memory Card cleared";
   });
-  content.querySelectorAll("[data-about-url]").forEach((button) => button.addEventListener("click", () => window.open(button.dataset.aboutUrl, "_blank", "noopener,noreferrer")));
+  content.querySelectorAll("[data-about-url]").forEach((button) => button.addEventListener("click", () => openNetworkUrl(button.dataset.aboutUrl, { title: button.textContent, source: "settings" })));
 }
 
 function setWallpaper(wallpaper) {
@@ -1377,7 +1386,7 @@ function runCommand(command, output) {
     void showManagedAd(ad, true); print(output, [`Previewing ${ad.id}; frequency state unchanged.`]);
   }
   else if (lower === "version") print(output, ["AWAKEN OS v4.2 static frontend"]);
-  else if (lower === "discord") window.open(LINKS.discord, "_blank", "noopener,noreferrer");
+  else if (lower === "discord") openNetworkUrl(LINKS.discord, { title: "AWAKEN Discord", source: "terminal" });
   else print(output, [`Unknown command: ${command}`]);
   output.scrollTop = output.scrollHeight;
 }

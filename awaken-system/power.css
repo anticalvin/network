@@ -1,0 +1,18 @@
+.power-on {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  background: #000;
+}
+.power-on main { display: grid; place-items: center; gap: 14px; }
+.power-on strong { font: 700 24px Tahoma, Arial, sans-serif; letter-spacing: 0; }
+.power-on small { color: #8f96a5; }
+.power-orbit { position: relative; width: 180px; height: 180px; display: grid; place-items: center; }
+.power-orbit img { z-index: 2; width: 54px; height: 54px; object-fit: contain; filter: invert(1); }
+.power-orbit span { position: absolute; width: 150px; height: 54px; border: 1px solid #da4a44; border-radius: 50%; animation: awaken-orbit 1.6s ease-in-out infinite; }
+.power-orbit span:nth-child(2) { transform: rotate(60deg); animation-delay: -.4s; }
+.power-orbit span:nth-child(3) { transform: rotate(120deg); animation-delay: -.8s; }
+@keyframes awaken-orbit { 50% { width: 72px; height: 160px; border-color: #008080; opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .power-orbit span { display: none; } }

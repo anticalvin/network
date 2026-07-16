@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AWAKEN Power</title><link rel="stylesheet" href="system.css"><link rel="stylesheet" href="power.css"></head>
+<body class="power-on">
+  <main aria-label="AWAKEN power-on sequence"><div class="power-orbit"><span></span><span></span><span></span><img src="../assets/img/smiley-black.png" alt="AWAKEN"></div><strong>AWAKEN</strong><small>tap or press any key to continue</small></main>
+  <script>
+    const params=new URLSearchParams(location.search),embedded=params.has('embedded')&&self!==top;let done=false;
+    if(!embedded)location.replace('../');
+    function go(){if(done||!embedded)return;done=true;parent.postMessage({type:'awaken:entry',stage:'bios'},location.origin)}
+    addEventListener('pointerdown',go,{once:true});addEventListener('keydown',go,{once:true});setTimeout(go,1800);
+  </script>
+</body>
+</html>

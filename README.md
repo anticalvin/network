@@ -9,16 +9,18 @@ AWAKEN Atlas now provides the fail-closed canonical knowledge layer beneath Expl
 ## Current Build
 
 - Supplied AWAKEN BIOS, startup, guest login, and ads pages under `awaken-system/`.
+- Skippable, one-per-session AWAKEN console-era power beat before the unchanged BIOS flow.
 - AWAKEN default image wallpaper with solid `#da4a44` offline fallback.
 - Classic wallpaper themes in Settings and `A:\Wallpapers`: AWAKEN Red, XP Teal, XP Blue, XP Olive, XP Silver, and Black.
 - Top status bar, bottom XP-style taskbar, Start menu, and desktop icons.
 - Window manager with close/minimize, draggable desktop windows, and mobile full-screen windows.
-- Versioned local Memory Card with explicit save, remove, reset, and persistence.
+- Versioned local Memory Card with 8MB block presentation, explicit save feedback, persistent unlocks, remove, reset, and persistence.
 - Scheduled, dismissible, frequency-limited transmission windows.
 - Managed content repository with bundled, cached, local-preview, and optional remote paths.
 - Configurable image icon manifest with safe text fallbacks.
 - Normalized local, remote, Supabase Storage, and ImgBB media sources.
-- Phone-friendly content editor at `/admin.html` for local editorial preview.
+- Phone-friendly authenticated content editor at `/admin.html` with local draft state, verified Supabase publication receipts, and live NETWORK publishing.
+- Touch-optimized AWAKEN Paint with mobile tool drawer, fit, zoom, and explicit pan mode.
 - Shop app with a Windows 3D Pipes-inspired in-development screen.
 - Supabase migrations with structured content, media, virtual filesystem, campaigns, Discord XP mirror tables, storage buckets, Realtime publication setup, and RLS.
 - MIND desktop app with a bounded initial XP fetch, Supabase Realtime updates, reconnect reconciliation, deduplication, and deliberate loading/offline/error states.

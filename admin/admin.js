@@ -15,7 +15,8 @@ const callbackQuery = new URLSearchParams(location.search);
 const callbackHash = new URLSearchParams(location.hash.slice(1));
 let authCallbackType = callbackQuery.get("type") || callbackHash.get("type") || (callbackQuery.has("code") ? "recovery" : "");
 const authClient = globalThis.supabase?.createClient?.(runtimeConfig.supabaseUrl, runtimeConfig.supabasePublishableKey || runtimeConfig.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-let content = (await repository.getPublicContent()).content;
+const initialContent = await repository.getPublicContent();
+let content = initialContent.content;
 let section = "transmissions";
 let selectedIndex = null;
 
@@ -64,6 +65,10 @@ const passwordPanel = document.getElementById("admin-password-panel");
 const signInButton = authForm.querySelector('button[type="submit"]');
 const signOutButton = document.getElementById("admin-sign-out");
 const publishButton = document.getElementById("admin-publish");
+const publicationState = document.getElementById("publication-state");
+let editorDirty = false;
+
+setPublicationState(initialContent.source === "admin-local" ? "Local device draft / not published" : content.updatedAt ? `Live edition / ${formatDate(content.updatedAt)}` : "No live edition published", initialContent.source === "admin-local" ? "draft" : "live");
 
 function hasAdminRole(session) {
   return session?.user?.app_metadata?.user_role === "admin";
@@ -119,19 +124,29 @@ publishButton.addEventListener("click", async () => {
   publishButton.disabled = true;
   publishButton.textContent = "Publishing...";
   try {
+    if (selectedIndex !== null && section !== "gallerySubmissions") {
+      const result = captureEditor(document.getElementById("editor-form"));
+      if (!result.ok) return;
+      content[section][selectedIndex] = result.entry;
+    }
+    content = repository.saveLocalDraft(content);
     const payload = structuredClone(content);
     delete payload.gallerySubmissions;
     payload.updatedAt = new Date().toISOString();
-    const { error } = await authClient.from("network_content_snapshots").upsert({
+    const { data: receipt, error } = await authClient.from("network_content_snapshots").upsert({
       id: "live",
       payload,
       published: true,
       published_at: payload.updatedAt,
       updated_by: sessionData.session.user.id
-    });
+    }).select("published_at,updated_at").single();
     if (error) { showStatus(error.message, true); return; }
     repository.clearLocalDraft();
-    showStatus("Published to the live AWAKEN NETWORK.");
+    content = payload;
+    editorDirty = false;
+    setPublicationState(`Live edition / ${formatDate(receipt?.published_at || payload.updatedAt)}`, "live");
+    showStatus("Published and verified on the live AWAKEN NETWORK.");
+    renderEditor();
   } catch (error) {
     showStatus(error?.message || "Publishing could not be completed.", true);
   } finally {
@@ -178,6 +193,7 @@ if (authClient) {
 document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", async () => {
   section = button.dataset.section;
   selectedIndex = null;
+  editorDirty = false;
   document.querySelectorAll("[data-section]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
   if (section === "gallerySubmissions") await loadGallerySubmissions();
   render();
@@ -194,7 +210,7 @@ function render() {
     button.type = "button";
     button.className = `entry${selectedIndex === index ? " active" : ""}`;
     button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.moderationStatus || entry.publicationState || entry.sourceType || entry.slug || entry.applicationId || entry.url || entry.color || "draft")}</small>`;
-    button.addEventListener("click", () => { selectedIndex = index; render(); });
+    button.addEventListener("click", () => { selectedIndex = index; editorDirty = false; render(); });
     list.appendChild(button);
   });
   renderEditor();
@@ -220,31 +236,21 @@ function renderEditor() {
   const form = document.getElementById("editor-form");
   if (selectedIndex === null) { form.innerHTML = `<div class="editor-empty">Select an entry or create a new one.</div>`; return; }
   const entry = content[section][selectedIndex];
-  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2><div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save local preview</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}<button type="button" data-duplicate>Duplicate</button><button class="danger" type="button" data-delete>Delete</button></div>`;
-  form.addEventListener("submit", saveForm, { once: true });
+  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2><div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}<button type="button" data-duplicate>Duplicate</button><button class="danger" type="button" data-delete>Delete</button><span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
+  form.addEventListener("submit", saveForm);
   form.querySelector("[data-duplicate]").addEventListener("click", duplicateEntry);
   form.querySelector("[data-delete]").addEventListener("click", deleteEntry);
   form.querySelector("[data-preview-ad]")?.addEventListener("click", () => window.open(`./index.html?skipBoot&adminPreview&previewAd=${encodeURIComponent(entry.id)}`, "_blank", "noopener,noreferrer"));
+  form.addEventListener("input", markEditorDirty);
+  form.addEventListener("change", markEditorDirty);
   showWarnings(form, entry);
 }
 
 async function saveForm(event) {
   event.preventDefault();
-  const data = new FormData(event.currentTarget);
-  const entry = { ...content[section][selectedIndex] };
-  let invalidJson = false;
-  schemas[section].forEach(([key, , type]) => {
-    if (type === "checkbox") entry[key] = event.currentTarget.elements[key].checked;
-    else if (type === "number") entry[key] = Number(data.get(key) || 0);
-    else if (type === "csv") entry[key] = String(data.get(key) || "").split(",").map((item) => item.trim()).filter(Boolean);
-    else if (type === "json") {
-      try { entry[key] = JSON.parse(data.get(key) || "{}"); } catch { invalidJson = true; }
-    }
-    else entry[key] = data.get(key)?.trim() || null;
-  });
-  if (invalidJson) { showStatus("Typed metadata must be valid JSON.", true); renderEditor(); return; }
-  const urlFields = schemas[section].filter((field) => field[2] === "url");
-  if (urlFields.some(([key]) => entry[key] && !safeUrl(entry[key]))) { showStatus("Use a valid http or https URL.", true); renderEditor(); return; }
+  const result = captureEditor(event.currentTarget);
+  if (!result.ok) { renderEditor(); return; }
+  const entry = result.entry;
   content[section][selectedIndex] = entry;
   if (section === "gallerySubmissions") {
     if (!authClient) { showStatus("Sign in with a Supabase admin account to moderate submissions.", true); return; }
@@ -252,18 +258,47 @@ async function saveForm(event) {
     if (!hasAdminRole(sessionData.session)) { showStatus("This account does not have the admin role.", true); return; }
     const { error } = await authClient.from("gallery_submissions").update({ moderation_status: entry.moderationStatus, reviewed_at: new Date().toISOString(), atlas_entity_id: entry.atlasEntityId || null }).eq("id", entry.id);
     if (error) { showStatus(error.message, true); return; }
+    editorDirty = false;
     await loadGallerySubmissions();
     showStatus(`Submission marked ${entry.moderationStatus}.`);
     render();
     return;
   }
+  editorDirty = false;
+  setPublicationState("Local device draft / not published", "draft");
   content = repository.saveLocalDraft(content);
+  event.currentTarget.querySelector("[data-save-state]").textContent = "Saved to this device";
+  event.currentTarget.querySelector("[data-save-state]").classList.add("saved");
   if (section === "icons") {
     const overrides = Object.fromEntries(content.icons.filter((icon) => icon.remoteIconUrl).map((icon) => [icon.applicationId, icon.remoteIconUrl]));
     localStorage.setItem("awaken.iconOverrides", JSON.stringify(overrides));
   }
-  showStatus("Saved. The public desktop will use this local preview after refresh.");
-  render();
+  showStatus("Draft saved to this device. Select Publish NETWORK to make it live.");
+}
+
+function captureEditor(form) {
+  const data = new FormData(form);
+  const entry = { ...content[section][selectedIndex] };
+  let invalidJson = false;
+  schemas[section].forEach(([key, , type]) => {
+    if (type === "checkbox") entry[key] = form.elements[key].checked;
+    else if (type === "number") entry[key] = Number(data.get(key) || 0);
+    else if (type === "csv") entry[key] = String(data.get(key) || "").split(",").map((item) => item.trim()).filter(Boolean);
+    else if (type === "json") {
+      try { entry[key] = JSON.parse(data.get(key) || "{}"); } catch { invalidJson = true; }
+    }
+    else entry[key] = data.get(key)?.trim() || null;
+  });
+  if (invalidJson) { showStatus("Typed metadata must be valid JSON.", true); return { ok: false }; }
+  const urlFields = schemas[section].filter((field) => field[2] === "url");
+  if (urlFields.some(([key]) => entry[key] && !safeUrl(entry[key]))) { showStatus("Use a valid http or https URL.", true); return { ok: false }; }
+  return { ok: true, entry };
+}
+
+function markEditorDirty() {
+  editorDirty = true;
+  const state = document.querySelector("[data-save-state]");
+  if (state) { state.textContent = "Unsaved changes"; state.classList.remove("saved"); }
 }
 
 async function loadGallerySubmissions() {
@@ -313,7 +348,9 @@ function showWarnings(form, entry) {
   form.querySelector("[data-warning]").innerHTML = warnings.map((warning) => `<p class="warning">${warning}</p>`).join("");
 }
 
-function showStatus(message, error = false) { const status = document.getElementById("admin-status"); status.textContent = message; status.style.background = error ? "#9b1711" : "#1f6d35"; status.hidden = false; setTimeout(() => { status.hidden = true; }, 3500); }
+function setPublicationState(message, mode) { publicationState.textContent = message; publicationState.dataset.mode = mode; }
+function formatDate(value) { try { return new Date(value).toLocaleString(); } catch { return String(value); } }
+function showStatus(message, error = false) { const status = document.getElementById("admin-status"); status.textContent = message; status.style.background = error ? "#9b1711" : "#1f6d35"; status.hidden = false; clearTimeout(showStatus.timer); showStatus.timer = setTimeout(() => { status.hidden = true; }, matchMedia("(max-width: 820px)").matches ? 8000 : 5000); }
 function titleCase(value) { return value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
 

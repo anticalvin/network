@@ -22,6 +22,8 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   const overlay = find("[data-overlay]");
   const context = composite.getContext("2d");
   const overlayContext = overlay.getContext("2d");
+  const canvasOuter = find(".gallery-canvas-outer");
+  const paper = find(".gallery-paper");
   let layers = [];
   let activeId = "";
   let tool = "brush";
@@ -33,6 +35,27 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   let guides = { horizontal: [], vertical: [] };
   let history = [];
   let future = [];
+  let zoom = 1;
+  let panMode = false;
+  let panStart = null;
+
+  function setZoom(value) {
+    zoom = clamp(Number(value) || 1, 0.1, 2.5);
+    [composite, overlay].forEach((canvas) => {
+      canvas.style.width = `${Math.round(canvas.width * zoom)}px`;
+      canvas.style.height = `${Math.round(canvas.height * zoom)}px`;
+    });
+    paper.style.width = `${Math.round(composite.width * zoom)}px`;
+    paper.style.height = `${Math.round(composite.height * zoom)}px`;
+    find("[data-zoom-value]").textContent = `${Math.round(zoom * 100)}%`;
+  }
+
+  function fitCanvas() {
+    const width = Math.max(80, canvasOuter.clientWidth - 24);
+    const height = Math.max(80, canvasOuter.clientHeight - 24);
+    setZoom(Math.min(width / composite.width, height / composite.height, 1));
+    canvasOuter.scrollTo({ left: 0, top: 0 });
+  }
 
   function createLayer(name = `Layer ${layers.length + 1}`, image = null) {
     const canvas = document.createElement("canvas");
@@ -52,6 +75,7 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
     const height = clamp(Number(find("[data-height]").value) || 600, 64, 1600);
     composite.width = overlay.width = width;
     composite.height = overlay.height = height;
+    setZoom(zoom);
     const background = document.createElement("canvas");
     background.width = width; background.height = height;
     const backgroundContext = background.getContext("2d");
@@ -108,6 +132,7 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
 
   async function restore(state) {
     composite.width = overlay.width = state.width; composite.height = overlay.height = state.height;
+    setZoom(zoom);
     layers = await Promise.all(state.layers.map(async (saved) => {
       const canvas = document.createElement("canvas"); canvas.width = state.width; canvas.height = state.height;
       const layerContext = canvas.getContext("2d", { willReadFrequently: true });
@@ -121,6 +146,11 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   function snap(pointValue) { if (!find("[data-snap]").checked) return pointValue; const size = Number(find("[data-grid-size]").value) || 20; return { x: Math.round(pointValue.x / size) * size, y: Math.round(pointValue.y / size) * size }; }
 
   function begin(event) {
+    if (panMode) {
+      panStart = { x: event.clientX, y: event.clientY, left: canvasOuter.scrollLeft, top: canvasOuter.scrollTop };
+      overlay.setPointerCapture(event.pointerId);
+      return;
+    }
     const layer = activeLayer(); if (!layer || layer.locked) { status("Select an unlocked layer."); return; }
     const p = point(event);
     if (tool === "eyedropper") { const pixel = context.getImageData(Math.floor(p.x), Math.floor(p.y), 1, 1).data; find("[data-color]").value = `#${[pixel[0], pixel[1], pixel[2]].map((value) => value.toString(16).padStart(2, "0")).join("")}`; return; }
@@ -131,6 +161,11 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   }
 
   function move(event) {
+    if (panMode && panStart) {
+      canvasOuter.scrollLeft = panStart.left - (event.clientX - panStart.x);
+      canvasOuter.scrollTop = panStart.top - (event.clientY - panStart.y);
+      return;
+    }
     const p = point(event); find("[data-coordinates]").textContent = `${Math.round(p.x)}, ${Math.round(p.y)}`;
     if (!drawing) return;
     const layer = activeLayer(); styleLayer(layer.context);
@@ -147,7 +182,7 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
     layer.context.stroke(); compositeLayers();
   }
 
-  function end() { if (!drawing) return; drawing = false; activeLayer()?.context.closePath(); setDirty(); compositeLayers(); }
+  function end() { if (panStart) { panStart = null; return; } if (!drawing) return; drawing = false; activeLayer()?.context.closePath(); setDirty(); compositeLayers(); }
   function styleLayer(layerContext) { layerContext.lineCap = "round"; layerContext.lineJoin = "round"; layerContext.lineWidth = Number(find("[data-size]").value); layerContext.strokeStyle = find("[data-color]").value; layerContext.fillStyle = find("[data-color]").value; }
 
   async function saveGallery(shared = false) {
@@ -189,11 +224,22 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   find("[data-save-gallery]").addEventListener("click", () => saveGallery(false));
   find("[data-submit-shared]").addEventListener("click", () => saveGallery(true));
   find("[data-save-project]").addEventListener("click", exportProject); find("[data-export]").addEventListener("click", exportPng);
+  find("[data-fit]").addEventListener("click", fitCanvas);
+  find("[data-zoom-in]").addEventListener("click", () => setZoom(zoom + 0.1));
+  find("[data-zoom-out]").addEventListener("click", () => setZoom(zoom - 0.1));
+  find("[data-tools-toggle]").addEventListener("click", () => container.querySelector(".gallery-studio").classList.toggle("tools-open"));
+  find("[data-pan]").addEventListener("click", (event) => {
+    panMode = !panMode;
+    event.currentTarget.classList.toggle("active", panMode);
+    overlay.classList.toggle("pan-mode", panMode);
+    status(panMode ? "Pan mode: drag the canvas viewport." : `Tool: ${tool}`);
+  });
   find("[data-open-project]").addEventListener("click", () => find("[data-project-input]").click()); find("[data-project-input]").addEventListener("change", (event) => openProject(event.target.files[0]));
   overlay.addEventListener("pointerdown", begin); overlay.addEventListener("pointermove", move); overlay.addEventListener("pointerup", end); overlay.addEventListener("pointercancel", end);
   const keyHandler = (event) => { if (!container.contains(document.activeElement) || ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) return; if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); find(event.shiftKey ? "[data-redo]" : "[data-undo]").click(); } };
   document.addEventListener("keydown", keyHandler);
   newDocument(); awakenBus.emit(AWAKEN_EVENTS.GALLERY_OPEN);
+  if (matchMedia("(max-width: 760px)").matches) requestAnimationFrame(fitCanvas);
   if (initialFile?.project) void restore({ width: initialFile.project.canvas.width, height: initialFile.project.canvas.height, layers: initialFile.project.layers, guides: initialFile.project.guides });
   else if (initialFile?.src || initialFile?.image) {
     void loadImage(initialFile.src || initialFile.image).then((image) => {
@@ -211,7 +257,7 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
   function status(message) { find("[data-status]").textContent = message; }
 }
 
-function markup() { return `<div class="gallery-studio"><div class="gallery-toolbar"><button type="button" data-new>New</button><button type="button" data-import>Import</button><button type="button" data-save-gallery>Save to Gallery</button><button type="button" data-save-project>Save Project</button><button type="button" data-open-project>Open Project</button><button type="button" data-export>Export PNG</button><button type="button" data-undo>Undo</button><button type="button" data-redo>Redo</button><button type="button" data-flatten>Flatten</button><label>W <input data-width type="number" min="64" max="1600" value="900"></label><label>H <input data-height type="number" min="64" max="1600" value="600"></label><label><input data-snap type="checkbox" checked> Snap</label><label><input data-grid type="checkbox"> Grid</label><input data-grid-size aria-label="Grid size" type="number" min="4" max="200" value="20"><button type="button" data-add-guide>Add guides</button><button type="button" data-clear-guides>Clear guides</button></div><div class="gallery-workspace"><aside class="gallery-tools"><strong>Tools</strong>${TOOLS.map(([id, label], index) => `<button type="button" data-tool="${id}" title="${label}" class="${index ? "" : "active"}">${label}</button>`).join("")}<label>Size <input data-size type="range" min="1" max="48" value="8"></label><label>Color <input data-color type="color" value="#111111"></label><div class="gallery-swatches">${PALETTE.map((color) => `<button type="button" style="--swatch:${color}" title="${color}" onclick="this.closest('.gallery-studio').querySelector('[data-color]').value='${color}'"></button>`).join("")}</div></aside><main class="gallery-canvas-outer"><div class="gallery-paper"><canvas data-composite width="900" height="600"></canvas><canvas data-overlay width="900" height="600"></canvas></div></main><aside class="gallery-properties"><section><h3>Layers</h3><div class="gallery-layer-actions"><button type="button" data-add-layer>Add</button><button type="button" data-duplicate-layer>Duplicate</button><button type="button" data-delete-layer>Delete</button></div><div data-layers></div><label>Opacity <input data-opacity type="range" min="0" max="100" value="100"></label><label>Blend <select data-blend><option value="source-over">Normal</option><option value="multiply">Multiply</option><option value="screen">Screen</option><option value="overlay">Overlay</option><option value="difference">Difference</option></select></label></section><section><h3>Gallery metadata</h3><label>Title <input data-title value="Untitled"></label><label>Creator <input data-creator></label><label>Visibility <select data-visibility><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select></label><label>Atlas entity <input data-atlas></label></section></aside></div><footer class="gallery-status"><span data-status>Ready</span><span data-coordinates></span></footer><input hidden data-image-input type="file" accept="image/*"><input hidden data-project-input type="file" accept="application/json,.json"></div>`; }
+function markup() { return `<div class="gallery-studio"><div class="gallery-toolbar"><button type="button" data-tools-toggle>Tools</button><button type="button" data-fit>Fit</button><button type="button" data-zoom-out aria-label="Zoom out">-</button><span data-zoom-value>100%</span><button type="button" data-zoom-in aria-label="Zoom in">+</button><button type="button" data-pan>Pan</button><button type="button" data-new>New</button><button type="button" data-import>Import</button><button type="button" data-save-gallery>Save to Gallery</button><button type="button" data-save-project>Save Project</button><button type="button" data-open-project>Open Project</button><button type="button" data-export>Export PNG</button><button type="button" data-undo>Undo</button><button type="button" data-redo>Redo</button><button type="button" data-flatten>Flatten</button><label>W <input data-width type="number" min="64" max="1600" value="900"></label><label>H <input data-height type="number" min="64" max="1600" value="600"></label><label><input data-snap type="checkbox" checked> Snap</label><label><input data-grid type="checkbox"> Grid</label><input data-grid-size aria-label="Grid size" type="number" min="4" max="200" value="20"><button type="button" data-add-guide>Add guides</button><button type="button" data-clear-guides>Clear guides</button></div><div class="gallery-workspace"><aside class="gallery-tools"><strong>Tools</strong>${TOOLS.map(([id, label], index) => `<button type="button" data-tool="${id}" title="${label}" class="${index ? "" : "active"}">${label}</button>`).join("")}<label>Size <input data-size type="range" min="1" max="48" value="8"></label><label>Color <input data-color type="color" value="#111111"></label><div class="gallery-swatches">${PALETTE.map((color) => `<button type="button" style="--swatch:${color}" title="${color}" onclick="this.closest('.gallery-studio').querySelector('[data-color]').value='${color}'"></button>`).join("")}</div></aside><main class="gallery-canvas-outer"><div class="gallery-paper"><canvas data-composite width="900" height="600"></canvas><canvas data-overlay width="900" height="600"></canvas></div></main><aside class="gallery-properties"><section><h3>Layers</h3><div class="gallery-layer-actions"><button type="button" data-add-layer>Add</button><button type="button" data-duplicate-layer>Duplicate</button><button type="button" data-delete-layer>Delete</button></div><div data-layers></div><label>Opacity <input data-opacity type="range" min="0" max="100" value="100"></label><label>Blend <select data-blend><option value="source-over">Normal</option><option value="multiply">Multiply</option><option value="screen">Screen</option><option value="overlay">Overlay</option><option value="difference">Difference</option></select></label></section><section><h3>Gallery metadata</h3><label>Title <input data-title value="Untitled"></label><label>Creator <input data-creator></label><label>Visibility <select data-visibility><option value="private">Private</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select></label><label>Atlas entity <input data-atlas></label></section></aside></div><footer class="gallery-status"><span data-status>Ready</span><span data-coordinates></span></footer><input hidden data-image-input type="file" accept="image/*"><input hidden data-project-input type="file" accept="application/json,.json"></div>`; }
 
 function floodFill(context, x, y, color) { const image = context.getImageData(0, 0, context.canvas.width, context.canvas.height); const data = image.data; const start = (y * image.width + x) * 4; const target = [data[start], data[start + 1], data[start + 2], data[start + 3]]; const fill = color.match(/[a-f0-9]{2}/gi).map((value) => parseInt(value, 16)).concat(255); if (target.every((value, index) => value === fill[index])) return; const stack = [[x, y]]; const seen = new Uint8Array(image.width * image.height); let processed = 0; while (stack.length && processed < 4_000_000) { const [currentX, currentY] = stack.pop(); if (currentX < 0 || currentY < 0 || currentX >= image.width || currentY >= image.height) continue; const pixel = currentY * image.width + currentX; if (seen[pixel]) continue; seen[pixel] = 1; const index = pixel * 4; if (Math.abs(data[index] - target[0]) + Math.abs(data[index + 1] - target[1]) + Math.abs(data[index + 2] - target[2]) + Math.abs(data[index + 3] - target[3]) > 25) continue; data.set(fill, index); processed += 1; stack.push([currentX + 1, currentY], [currentX - 1, currentY], [currentX, currentY + 1], [currentX, currentY - 1]); } context.putImageData(image, 0, 0); }
 function loadImage(source, revoke = false) { return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => { if (revoke) URL.revokeObjectURL(source); resolve(image); }; image.onerror = () => { if (revoke) URL.revokeObjectURL(source); reject(new Error("Image could not be decoded.")); }; image.src = source; }); }

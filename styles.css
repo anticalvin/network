@@ -84,6 +84,8 @@
 .gallery-paper { position: relative; width: max-content; min-width: 64px; box-shadow: 0 0 0 1px #000, 5px 5px 0 rgba(0, 0, 0, .25); }
 .gallery-paper canvas { display: block; max-width: none; touch-action: none; }
 .gallery-paper [data-overlay] { position: absolute; inset: 0; }
+.gallery-paper [data-overlay].pan-mode { cursor: grab; }
+.gallery-toolbar [data-tools-toggle] { display: none; }
 .gallery-properties section { margin-bottom: 10px; padding: 6px; border: 1px solid; border-color: #777 #fff #fff #777; }
 .gallery-properties h3 { margin: 0 0 6px; font-size: 12px; }
 .gallery-layer-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-bottom: 5px; }
@@ -131,27 +133,59 @@
 .media-bands input { width: 100px; transform: rotate(-90deg); align-self: center; }
 .media-main > footer { position: sticky; bottom: 0; padding: 5px 8px; border-top: 1px solid #777; background: #ece9d8; }
 
-.managed-ad { width: min(390px, calc(100vw - 24px)) !important; }
-.managed-ad-body { padding: 13px; background: #ece9d8; }
+.managed-ad { width: min(390px, calc(100vw - 24px)) !important; animation: disc-tray-open 220ms steps(4, end); }
+.managed-ad-body { padding: 16px; background: repeating-linear-gradient(0deg, #ece9d8 0 22px, #e1dfd4 23px); border-left: 9px solid #da4a44; }
 .managed-ad-body > strong { display: block; margin-bottom: 9px; font-size: 14px; }
 .managed-ad-body small { display: block; margin: 10px 0; color: #555; }
 .managed-ad-body > div { display: flex; justify-content: flex-end; gap: 5px; }
 .managed-ad-security .window-header { background: linear-gradient(#e46a60, #a51e19); }
+@keyframes disc-tray-open { from { clip-path: inset(48% 0 48% 0); transform: scaleX(.88); } to { clip-path: inset(0); transform: scaleX(1); } }
+
+.memory-card-shell { padding: 12px; color: #e8f0ff; background: linear-gradient(145deg, #20242d, #08090d); border: 3px ridge #727987; }
+.memory-card-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font: 12px "Courier New", monospace; }
+.memory-blocks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 12px; }
+.memory-blocks span { min-height: 32px; display: grid; place-items: center; color: #7d8799; background: #11151c; border: 1px inset #4d5667; font: 11px "Courier New", monospace; }
+.memory-blocks span.used { color: #fff; background: #245edb; }
+.memory-blocks span.corrupt { color: #fff; background: repeating-linear-gradient(90deg, #da4a44 0 3px, #050505 3px 6px); animation: memory-corrupt 450ms steps(2) infinite; }
+.memory-card-shell .memory-row { color: #111; background: #f2f2ed; }
+.memory-unlocks { display: grid; gap: 5px; margin-top: 12px; padding: 10px; color: #111; background: #ffe46b; }
+.memory-save-notice { position: fixed; z-index: 10000; right: 14px; bottom: calc(var(--taskbar-h) + 14px); display: grid; gap: 3px; width: min(330px, calc(100vw - 28px)); padding: 13px; color: #fff; background: #11151c; border: 2px solid #7890bb; box-shadow: 5px 5px 0 rgba(0,0,0,.45); }
+.memory-save-notice.unlocked { color: #111; background: #ffe46b; border-color: #da4a44; }
+@keyframes memory-corrupt { 50% { filter: invert(1); transform: translateX(1px); } }
 .intrusion-window { padding: 0; background: #050505; }
 .intrusion-screen { min-height: 230px; padding: 16px; color: #47f080; background: repeating-linear-gradient(0deg, #030704 0 2px, #07150c 3px); }
 .intrusion-screen pre { min-height: 170px; white-space: pre-wrap; }
 .intrusion-screen button { color: #fff; border: 1px solid #47f080; background: #102d19; }
 
 @media (max-width: 760px) {
-  .gallery-workspace { grid-template-columns: 88px minmax(260px, 1fr); overflow: auto; }
+  .gallery-studio { position: relative; min-height: 0; }
+  .gallery-toolbar { flex-wrap: nowrap; overflow-x: auto; }
+  .gallery-toolbar button, .gallery-toolbar input, .gallery-toolbar label, .gallery-tools button, .gallery-properties button, .gallery-properties input, .gallery-properties select { min-height: 44px; }
+  .gallery-toolbar button { min-width: 44px; }
+  .gallery-toolbar button, .gallery-toolbar label, .gallery-toolbar input, .gallery-toolbar [data-zoom-value] { flex: 0 0 auto; }
+  .gallery-toolbar [data-tools-toggle] { display: inline-block; }
+  .gallery-workspace { display: grid; grid-template-columns: 1fr; overflow: hidden; }
+  .gallery-tools { position: absolute; z-index: 20; left: 0; right: 0; bottom: 23px; display: none; grid-template-columns: repeat(3, 1fr); gap: 5px; max-height: 62%; padding: 10px max(10px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-bottom)); border-top: 2px solid #245edb; box-shadow: 0 -8px 24px rgba(0,0,0,.35); }
+  .gallery-tools > strong, .gallery-tools > label, .gallery-swatches { grid-column: 1 / -1; }
+  .gallery-tools > button { margin: 0; text-align: center; }
+  .gallery-studio.tools-open .gallery-tools { display: grid; }
+  .gallery-layer { grid-template-columns: 44px 1fr 52px; min-height: 44px; }
   .gallery-properties { grid-column: 1 / -1; border: 0; }
-  .gallery-canvas-outer { padding: 12px; }
+  .gallery-properties { max-height: 34vh; }
+  .gallery-canvas-outer { min-height: 44vh; padding: 12px; touch-action: pan-x pan-y; }
   .media-studio { grid-template-columns: 1fr; overflow: auto; }
   .media-library { display: none; }
   .media-now { grid-template-columns: 80px 1fr; }
   .media-transport { grid-template-columns: repeat(5, auto); }
   .media-transport input { grid-column: 1 / -1; width: 100%; }
   .media-lower { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 761px) and (max-width: 1024px) {
+  .desktop-icons { grid-template-columns: repeat(2, 80px); gap: 9px; padding: 14px; }
+  .window { width: min(760px, calc(100vw - 24px)); height: min(560px, calc(100vh - var(--topbar-h) - var(--taskbar-h) - 22px)); }
+  .task-item { width: clamp(104px, 20vw, 170px); }
+  .gallery-workspace { grid-template-columns: 104px minmax(240px, 1fr) 180px; }
 }
 
 * {
@@ -1449,8 +1483,11 @@ html[data-reduced-motion="true"] *::after {
   }
 
   .window-controls button {
-    width: 38px;
+    width: 44px;
+    min-height: 44px;
   }
+
+  .start-button, .task-item, .start-row, .start-actions button, .awaken-context-menu button, .window-content button, .window-content input, .window-content select { min-height: 44px; }
 
   .network-browser-toolbar {
     grid-template-columns: repeat(5, 1fr) auto;

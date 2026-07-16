@@ -1,5 +1,6 @@
 import { defaultContent } from "./src/content/default-content.js";
 import { iconManifest } from "./src/content/icon-manifest.js";
+import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, removeMemoryItem, saveMemoryCard, setDismissal } from "./src/domain/memory-card.js";
 import { normalizeMedia } from "./src/domain/media.js";
 import { selectTransmissions } from "./src/domain/scheduling.js";
@@ -13,7 +14,7 @@ import { renderMindApp } from "./src/apps/mind/mind-app.js";
 import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
-import { recoverFragments } from "./src/domain/recovery.js";
+import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
 import { advanceIntrusion, cancelIntrusion, createIntrusionState } from "./src/domain/intrusion.js";
 import { getRuntimeConfig, getSessionState, setSessionState } from "./src/system/runtime-state.js";
 import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js";
@@ -24,6 +25,7 @@ import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
 import { configureNetworkNavigation, openNetworkUrl } from "./src/system/network-navigation.js";
+import { managedFeatureEnabled, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -237,7 +239,6 @@ const communityRepository = new CommunityRepository({ adapter: new SupabaseCommu
 const atlasRepository = new AtlasRepository({ adapter: new SupabaseAtlasAdapter(supabaseClient), fallback: atlasSeed });
 const galleryRepository = new GalleryRepository(supabaseClient);
 let PUBLIC_ATLAS = filterPublicAtlasBundle(atlasSeed);
-void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
 const sessionDisplays = {};
 let bootFinished = false;
 let clockTimer = 0;
@@ -292,15 +293,40 @@ async function initializeDesktop({ entryComplete = false } = {}) {
   galleryRepository.subscribe(() => { void refreshSharedGallery(); });
   const loaded = await repository.getPublicContent();
   managedContent = loaded.content;
+  applyManagedContent();
   if (managedContent.atlasEntities || managedContent.atlasRelationships || managedContent.atlasSources) {
     PUBLIC_ATLAS = filterPublicAtlasBundle({
       entities: managedContent.atlasEntities,
       relationships: managedContent.atlasRelationships,
       sources: managedContent.atlasSources
     });
-  }
+  } else void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
   if (entryComplete) finishBoot();
   else runBoot();
+}
+
+function applyManagedContent() {
+  const links = mergeManagedLinks(LINKS, managedContent.links);
+  Object.assign(LINKS, links);
+  if (links.apple) LINKS.appleArtist = links.apple;
+  WALLPAPERS.splice(0, WALLPAPERS.length, ...mergeManagedThemes(WALLPAPERS, managedContent.themes));
+  if (hasMemoryUnlock(memoryCard, "archive-signal-wallpaper") && !WALLPAPERS.some((item) => item.id === "archive-signal")) {
+    WALLPAPERS.push({ id: "archive-signal", title: "Archive Signal", color: "#050505", image: "assets/img/secret-wallpaper.webp", mode: "cover", detail: "Memory Card unlock" });
+  }
+  if (Array.isArray(managedContent.links)) {
+    const original = [...SOCIALS];
+    const existing = new Map(original.map((item) => [item.title.toLowerCase(), item]));
+    const published = managedContent.links
+      .filter((item) => item?.verified !== false && links[item.id])
+      .map((item) => ({ title: item.label, detail: item.detail || existing.get(String(item.label).toLowerCase())?.detail || "AWAKEN NETWORK destination.", url: links[item.id] }));
+    const publishedTitles = new Set(published.map((item) => item.title.toLowerCase()));
+    SOCIALS.splice(0, SOCIALS.length, ...published, ...original.filter((item) => !publishedTitles.has(item.title.toLowerCase())));
+  }
+}
+
+function runtimeTeamMembers() {
+  if (!Array.isArray(managedContent.contributors) || !managedContent.contributors.length) return TEAM_MEMBERS;
+  return managedContent.contributors.filter((person) => person?.isActive !== false && person?.displayName && person?.slug);
 }
 
 function runBoot() {
@@ -373,7 +399,7 @@ function startClock() {
 function buildDesktop() {
   const desktop = document.getElementById("desktop-icons");
   desktop.innerHTML = "";
-  iconManifest.filter((icon) => icon.enabled && icon.desktop).sort((a, b) => a.sortOrder - b.sortOrder).forEach((manifest) => {
+  mergeManagedIcons(iconManifest, managedContent.icons).filter((icon) => icon.enabled && icon.desktop).sort((a, b) => a.sortOrder - b.sortOrder).forEach((manifest) => {
     const id = manifest.applicationId;
     const app = APPS.find((item) => item.id === id);
     if (app) desktop.appendChild(iconButton(app, manifest));
@@ -712,7 +738,7 @@ function getEntriesForPath(path) {
   if (p.endsWith("gallery")) return galleryFiles;
   if (p.endsWith("community")) return [folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))];
   if (p.endsWith("community\\xp")) return [fileByName("MIND.exe"), { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }];
-  if (p.endsWith("team")) return TEAM_MEMBERS.map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person }));
+  if (p.endsWith("team")) return runtimeTeamMembers().map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person }));
   if (p.endsWith("wallpapers")) {
     return [
       ...WALLPAPERS.map((wallpaper) => ({ name: `${wallpaper.title}.theme`, type: "Theme", size: wallpaper.image ? "image" : wallpaper.color, modified: "system", wallpaper })),
@@ -818,7 +844,7 @@ function openPackage(id) {
 }
 
 function openMusic() {
-  if (!getRuntimeConfig().features.upgraded_media_player_enabled) { openText("AWAKEN Media Player", "Media Player is disabled by runtime configuration."); return; }
+  if (!managedFeatureEnabled(managedContent, "upgradedMediaPlayerEnabled", getRuntimeConfig().features.upgraded_media_player_enabled)) { openText("AWAKEN Media Player", "Media Player is disabled by runtime configuration."); return; }
   if (focusExistingWindow("media-player")) return;
   const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
   const publicReleaseSlugs = new Set(PUBLIC_ATLAS.entities.filter((entity) => entity.entityType === "release").map((entity) => entity.slug));
@@ -828,7 +854,8 @@ function openMusic() {
 }
 
 function openAwakenPaint(initialFile = null) {
-  if (!getRuntimeConfig().features.gallery_studio_enabled) { openText("AWAKEN Paint", "AWAKEN Paint is disabled by runtime configuration."); return; }
+  if (!managedFeatureEnabled(managedContent, "galleryStudioEnabled", getRuntimeConfig().features.gallery_studio_enabled)) { openText("AWAKEN Paint", "AWAKEN Paint is disabled by runtime configuration."); return; }
+  document.querySelectorAll(".transmission").forEach((panel) => panel.remove());
   if (focusExistingWindow("awaken-paint")) return;
   const { win, content } = createWindow("AWAKEN Paint - A:\\Gallery", { wide: true, className: "gallery-window", appId: "awaken-paint" });
   win.style.width = "min(1180px, calc(100vw - 24px))";
@@ -847,7 +874,8 @@ async function registerGalleryFile(record, { shared = false, imageBlob } = {}) {
   const project = { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") };
   localGalleryFiles = [image, project, ...localGalleryFiles.filter((item) => item.id !== image.id && item.id !== project.id)].slice(0, 16);
   mergeGalleryFiles();
-  memoryCard = saveMemoryCard(addMemoryItem(memoryCard, { id: record.id, type: "gallery", title: record.name, path: record.path, localOnly: true }));
+  const savedItem = { id: record.id, type: "gallery", title: record.name, path: record.path, localOnly: true };
+  memoryCard = commitMemoryCard(addMemoryItem(memoryCard, savedItem), { savedItems: [savedItem] });
   awakenBus.emit(AWAKEN_EVENTS.FILESYSTEM_FILE_CREATED, { id: record.id, path: record.path, type: "image", localOnly: true });
   if (!shared) return { submitted: false, localOnly: true };
   try {
@@ -1072,15 +1100,15 @@ function openTeamProfile(person) {
       <div class="team-avatar" aria-hidden="true">${escapeHtml(person.displayName.slice(0, 1))}</div>
       <div>
         <h2>${escapeHtml(person.displayName)}</h2>
-        <p>AWAKEN team member.</p>
-        <div class="empty-state">No additional profile details are available.</div>
+        <p>${escapeHtml(person.roleLabel || "AWAKEN team member.")}</p>
+        <div class="empty-state">${escapeHtml(person.biography || "No additional profile details are available.")}</div>
       </div>
     </section>
   `;
 }
 
 function saveExplicit(button, item) {
-  memoryCard = saveMemoryCard(addMemoryItem(memoryCard, item));
+  memoryCard = commitMemoryCard(addMemoryItem(memoryCard, item), { savedItems: [item] });
   if (button) {
     button.textContent = "Saved";
     button.disabled = true;
@@ -1094,7 +1122,10 @@ function openMemoryCard() {
 }
 
 function renderMemoryCard(content) {
-  content.innerHTML = `<div class="toolbar"><strong>${memoryCard.items.length} saved</strong><button type="button" data-reset-memory>Reset card</button></div><div data-memory-items></div>`;
+  const usedBlocks = Math.min(15, memoryCard.items.length);
+  const corruptBlocks = corruptMemoryCount();
+  const unlocks = MEMORY_UNLOCKS.filter((item) => hasMemoryUnlock(memoryCard, item.id));
+  content.innerHTML = `<div class="memory-card-shell"><div class="memory-card-label"><strong>MEMORY CARD (8MB)</strong><span>${usedBlocks}/15 blocks</span></div><div class="memory-blocks" aria-label="${usedBlocks} of 15 blocks used">${Array.from({ length: 15 }, (_, index) => `<span class="${index < usedBlocks ? "used" : ""}${index >= 15 - corruptBlocks ? " corrupt" : ""}">${index + 1}</span>`).join("")}</div><div class="toolbar"><strong>${memoryCard.items.length} saved</strong><button type="button" data-reset-memory>Reset card</button></div><div data-memory-items></div>${unlocks.length ? `<section class="memory-unlocks"><strong>Unlocked</strong>${unlocks.map((item) => `<span>${escapeHtml(item.title)}</span>`).join("")}</section>` : ""}</div>`;
   const list = content.querySelector("[data-memory-items]");
   if (!memoryCard.items.length) {
     list.innerHTML = `<div class="empty-state">${escapeHtml(managedContent.interface?.memoryCardEmpty || defaultContent.interface.memoryCardEmpty)}</div>`;
@@ -1104,7 +1135,7 @@ function renderMemoryCard(content) {
       row.className = "memory-row";
       row.innerHTML = `<div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.type)} / saved ${new Date(item.savedAt).toLocaleDateString()}</small></div><button type="button">Remove</button>`;
       row.querySelector("button").addEventListener("click", () => {
-        memoryCard = saveMemoryCard(removeMemoryItem(memoryCard, item.type, item.id));
+        memoryCard = commitMemoryCard(removeMemoryItem(memoryCard, item.type, item.id), { quiet: true });
         renderMemoryCard(content);
       });
       list.appendChild(row);
@@ -1112,7 +1143,7 @@ function renderMemoryCard(content) {
   }
   content.querySelector("[data-reset-memory]").addEventListener("click", () => {
     if (!confirm("Remove every saved Memory Card item and preference?")) return;
-    memoryCard = saveMemoryCard(emptyMemoryCard());
+    memoryCard = commitMemoryCard(emptyMemoryCard(), { quiet: true });
     renderMemoryCard(content);
   });
 }
@@ -1120,8 +1151,12 @@ function renderMemoryCard(content) {
 function recoverToMemoryCard(source = "system") {
   awakenBus.emit(AWAKEN_EVENTS.MEMORY_RECOVER_REQUESTED, { source });
   try {
-    const result = recoverFragments(memoryCard);
-    memoryCard = saveMemoryCard(result.card);
+    const managedFragments = Array.isArray(managedContent.fragments)
+      ? managedContent.fragments.filter((item) => item?.status === "published" && item.id && item.title).map((item) => ({ ...item, type: "fragment", source: item.sourceType || "managed" }))
+      : [];
+    const fragments = [...RECOVERY_FRAGMENTS, ...managedFragments.filter((item) => !RECOVERY_FRAGMENTS.some((base) => base.id === item.id))];
+    const result = recoverFragments(memoryCard, fragments);
+    memoryCard = commitMemoryCard(result.card, { savedItems: result.created });
     awakenBus.emit(AWAKEN_EVENTS.MEMORY_RECOVER_COMPLETED, { source, createdCount: result.created.length, ids: result.created.map((item) => item.id) });
     return result;
   } catch (error) {
@@ -1133,7 +1168,7 @@ function recoverToMemoryCard(source = "system") {
 function scheduleAds() {
   clearInterval(adTimer);
   const config = getRuntimeConfig();
-  if (!config.features.ads_runtime_enabled) return;
+  if (!managedFeatureEnabled(managedContent, "adsRuntimeEnabled", config.features.ads_runtime_enabled)) return;
   const attempt = () => {
     awakenBus.emit(AWAKEN_EVENTS.ADS_SCHEDULE);
     if (document.hidden) return;
@@ -1190,7 +1225,7 @@ async function showManagedAd(ad, preview = false) {
 
 function startIntrusion({ manual = false } = {}) {
   const config = getRuntimeConfig();
-  if (!config.features.intrusion_enabled) return { started: false, reason: "disabled" };
+  if (!managedFeatureEnabled(managedContent, "intrusionEnabled", config.features.intrusion_enabled)) return { started: false, reason: "disabled" };
   if (matchMedia("(max-width: 760px)").matches || document.querySelector(".gallery-dirty") || getSessionState("intrusion.running")) return { started: false, reason: "busy" };
   if (!manual && getSessionState("intrusion.completed")) return { started: false, reason: "already-completed" };
   let state = createIntrusionState({ completed: false });
@@ -1236,7 +1271,7 @@ function scheduleTransmissions() {
 }
 
 function showTransmission(item) {
-  if (sessionDisplays[item.id]) return;
+  if (sessionDisplays[item.id] || document.querySelector(".gallery-window, .gallery-dirty")) return;
   sessionDisplays[item.id] = 1;
   awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_SHOWN, { id: item.id, destinationUrl: item.destinationUrl });
   const layer = document.getElementById("transmission-layer");
@@ -1244,7 +1279,7 @@ function showTransmission(item) {
   panel.className = "transmission";
   panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Dismiss">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open in AWAKEN Internet</button><button type="button" data-save>Save</button></div>`;
   const dismiss = () => {
-    memoryCard = saveMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }));
+    memoryCard = commitMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }), { quiet: true });
     awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_DISMISSED, { id: item.id });
     panel.remove();
   };
@@ -1311,7 +1346,7 @@ function openSettings() {
   });
   content.querySelector("[data-clear-memory]").addEventListener("click", () => {
     if (!confirm("Clear every saved Memory Card item?")) return;
-    memoryCard = saveMemoryCard(emptyMemoryCard());
+    memoryCard = commitMemoryCard(emptyMemoryCard(), { quiet: true });
     content.querySelector("[data-clear-memory]").textContent = "Memory Card cleared";
   });
   content.querySelectorAll("[data-about-url]").forEach((button) => button.addEventListener("click", () => openNetworkUrl(button.dataset.aboutUrl, { title: button.textContent, source: "settings" })));
@@ -1356,6 +1391,33 @@ function safeJson(value) {
   } catch {
     return null;
   }
+}
+
+function commitMemoryCard(next, { savedItems = [], quiet = false } = {}) {
+  const result = applyMemoryUnlocks(next, savedItems);
+  const saved = saveMemoryCard(result.card);
+  if (result.unlocked.some((item) => item.id === "archive-signal-wallpaper") && !WALLPAPERS.some((item) => item.id === "archive-signal")) {
+    WALLPAPERS.push({ id: "archive-signal", title: "Archive Signal", color: "#050505", image: "assets/img/secret-wallpaper.webp", mode: "cover", detail: "Memory Card unlock" });
+  }
+  if (!quiet) showMemoryNotice(result.unlocked);
+  return saved;
+}
+
+function showMemoryNotice(unlocked = []) {
+  document.querySelector(".memory-save-notice")?.remove();
+  const notice = document.createElement("div");
+  notice.className = `memory-save-notice${unlocked.length ? " unlocked" : ""}`;
+  notice.innerHTML = unlocked.length
+    ? `<strong>MEMORY CARD UNLOCKED</strong><span>${escapeHtml(unlocked.map((item) => item.title).join(" / "))}</span>`
+    : `<strong>MEMORY CARD SAVED</strong><span>Do not remove the Memory Card.</span>`;
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 4200);
+}
+
+function corruptMemoryCount() {
+  const raw = safeJson(localStorage.getItem("awaken.memory-card"));
+  if (!Array.isArray(raw?.items)) return 0;
+  return raw.items.filter((item) => !item || typeof item.id !== "string" || typeof item.type !== "string" || typeof item.title !== "string").length;
 }
 
 function openTerminal(prefill = "") {
@@ -1404,6 +1466,7 @@ function runCommand(command, output) {
     void showManagedAd(ad, true); print(output, [`Previewing ${ad.id}; frequency state unchanged.`]);
   }
   else if (lower === "version") print(output, ["AWAKEN OS v4.2 static frontend"]);
+  else if (lower === "disc" && hasMemoryUnlock(memoryCard, "paint-disc-command")) print(output, ["AWAKEN DEMO DISC / SIDE B", "ARCHIVE SIGNAL: A:\\Wallpapers\\Archive Signal.theme", "BONUS CHANNEL: soundcloud.com/awakencult"]);
   else if (lower === "discord") openNetworkUrl(LINKS.discord, { title: "AWAKEN Discord", source: "terminal" });
   else print(output, [`Unknown command: ${command}`]);
   output.scrollTop = output.scrollHeight;

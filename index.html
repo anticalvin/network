@@ -137,7 +137,9 @@
       const frame = document.getElementById("entry-sequence");
       const stages = new Set(["bios", "startup", "login"]);
       frame.hidden = false;
-      frame.src = "./awaken-system/bios.html?embedded=1";
+      const showPowerBeat = sessionStorage.getItem("awaken.powerBeatSeen") !== "true";
+      sessionStorage.setItem("awaken.powerBeatSeen", "true");
+      frame.src = showPowerBeat ? "./awaken-system/power.html?embedded=1" : "./awaken-system/bios.html?embedded=1";
       addEventListener("message", (event) => {
         if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== "awaken:entry") return;
         if (stages.has(event.data.stage)) {

@@ -208,9 +208,14 @@ body {
   width: 100%;
   height: 100%;
   height: 100dvh;
+  max-width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
+  position: fixed;
+  inset: 0;
   margin: 0;
   overflow: hidden;
   background: #000;
@@ -289,8 +294,10 @@ button {
 
 .os {
   display: none;
-  width: 100vw;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
   background-color: var(--wallpaper-color);
   background-image: var(--wallpaper-image, none);
   background-size: var(--wallpaper-size, cover);
@@ -404,6 +411,8 @@ button {
   height: var(--taskbar-h);
   display: grid;
   grid-template-columns: auto 1fr auto;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 8px;
   padding: 5px 8px max(5px, env(safe-area-inset-bottom, 0px));
@@ -652,7 +661,11 @@ button {
 .window-content {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
 }
 
@@ -1181,6 +1194,23 @@ button {
 .network-site h1 { margin: 4px 0; font-size: 32px; }
 .network-site-tagline { padding-bottom: 13px; border-bottom: 3px solid var(--site-accent); font-weight: 700; }
 .network-site pre { min-height: 180px; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; background: #fff; border: 1px solid #bbb; font: 13px/1.6 "Courier New", monospace; }
+.network-site--feed { background: #eef2f8; }
+.network-site--feed > div { width: min(580px, 100%); }
+.network-site--feed pre { border-color: #9db2d3; box-shadow: 7px 7px 0 #c6d3e7; font-family: Tahoma, sans-serif; }
+.network-site--classifieds { color: #17130a; background: #f4dc55; }
+.network-site--classifieds > header { color: #111; background: #f8f2d4; border-bottom: 3px double #111; }
+.network-site--classifieds pre { background: #fffce9; border: 2px dashed #17130a; font-weight: 700; }
+.network-site--channel { color: #e8ece8; background: #070807; }
+.network-site--channel > header { background: #38100e; }
+.network-site--channel pre { color: #dfffd9; background: repeating-linear-gradient(0deg, #081008 0 2px, #0d1a0d 3px); border-color: #5b9257; text-shadow: 0 0 5px #52c852; }
+.network-site--weather { color: #09224b; background: linear-gradient(#b9ddff, #eef7ff); }
+.network-site--weather pre { background-color: #edf8ff; background-image: linear-gradient(#c8e3f7 1px, transparent 1px), linear-gradient(90deg, #c8e3f7 1px, transparent 1px); background-size: 22px 22px; border: 2px solid #477ba7; }
+.network-site--messenger { background: #dce9f8; }
+.network-site--messenger > div { width: min(620px, 100%); }
+.network-site--messenger pre { color: #17345f; background: #fff; border: 5px ridge #7fa6d6; font-family: Tahoma, sans-serif; }
+.network-site--authority { background: #e5e5e0; }
+.network-site--authority > header { color: #111; background: #c9c9c4; border-bottom: 2px solid #111; }
+.network-site--authority pre { color: #111; background: repeating-linear-gradient(#fff 0 27px, #b9c6d5 28px); border: 2px solid #111; font-family: "Courier New", monospace; }
 
 .empty-state {
   padding: 24px 12px;
@@ -1502,7 +1532,8 @@ html[data-reduced-motion="true"] *::after {
   .window {
     position: fixed;
     inset: var(--topbar-h) 0 var(--taskbar-h) 0 !important;
-    width: 100vw !important;
+    width: auto !important;
+    max-width: none;
     height: auto;
     min-width: 0;
     min-height: 0;
@@ -1548,6 +1579,8 @@ html[data-reduced-motion="true"] *::after {
   .task-item { width: min(112px, 34vw); padding-inline: 7px; }
   .system-tray { padding-inline: 7px; gap: 5px; }
   .system-tray > span { display: none; }
+  .window-content { touch-action: pan-y; }
+  .desktop-icons { max-width: 100%; }
   .memory-row { grid-template-columns: 1fr; }
   .memory-row-actions { justify-content: stretch; }
   .memory-row-actions button { flex: 1 1 auto; }

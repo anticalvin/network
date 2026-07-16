@@ -2,7 +2,7 @@ import { defaultContent } from "./src/content/default-content.js?v=runtime-7";
 import { iconManifest } from "./src/content/icon-manifest.js";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
-import { normalizeMedia } from "./src/domain/media.js";
+import { normalizeMedia } from "./src/domain/media.js?v=runtime-8";
 import { selectTransmissions } from "./src/domain/scheduling.js";
 import { ContentRepository } from "./src/data/content-repository.js?v=runtime-7";
 import { brandAssets } from "./src/content/brand-assets.js";
@@ -1127,8 +1127,20 @@ function openNetworkSite(id) {
   const site = networkSites.find((item) => item.id === id);
   if (!site || focusExistingWindow(`network-site:${site.id}`)) return;
   const { content } = createWindow(`AWAKEN Internet - ${site.title}`, { wide: true, appId: `network-site:${site.id}` });
-  content.innerHTML = `<article class="network-site" style="--site-accent:${escapeHtml(site.accent)}"><header><span>http://network.local/${escapeHtml(site.slug)}</span><strong>NETWORK ONLINE</strong></header><div><p class="network-site-kicker">AWAKEN PUBLIC ACCESS</p><h1>${escapeHtml(site.title)}</h1><p class="network-site-tagline">${escapeHtml(site.tagline)}</p><pre>${escapeHtml(site.body)}</pre><button type="button" data-save-site>Save page to Memory Card</button></div></article>`;
+  const variant = networkSiteVariant(site.id);
+  content.innerHTML = `<article class="network-site network-site--${variant}" style="--site-accent:${escapeHtml(site.accent)}"><header><span>http://network.local/${escapeHtml(site.slug)}</span><strong>NETWORK ONLINE</strong></header><div><p class="network-site-kicker">AWAKEN PUBLIC ACCESS</p><h1>${escapeHtml(site.title)}</h1><p class="network-site-tagline">${escapeHtml(site.tagline)}</p><pre>${escapeHtml(site.body)}</pre><button type="button" data-save-site>Save page to Memory Card</button></div></article>`;
   content.querySelector("[data-save-site]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: site.id, type: "network-site", title: site.title, body: site.body, tagline: site.tagline }));
+}
+
+function networkSiteVariant(id) {
+  return ({
+    "the-feed": "feed",
+    "call-awaken-classifieds": "classifieds",
+    "channel-zero": "channel",
+    "parallel-weather": "weather",
+    "awaken-messenger": "messenger",
+    "dream-authority": "authority"
+  })[id] || "terminal";
 }
 
 function portalMarkup(item) {

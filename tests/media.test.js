@@ -13,3 +13,10 @@ test("unsafe URL schemes and missing media fail closed", () => {
   assert.equal(safeUrl("javascript:alert(1)"), null);
   assert.equal(normalizeMedia({ src: "javascript:alert(1)" }).missing, true);
 });
+
+test("local asset paths open without being parsed as absolute URLs", () => {
+  const media = normalizeMedia({ src: "assets/img/awaken-logo.webp" });
+  assert.equal(media.fullSource, "assets/img/awaken-logo.webp");
+  assert.equal(media.provider, "local");
+  assert.equal(media.missing, false);
+});

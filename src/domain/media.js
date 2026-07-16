@@ -3,7 +3,7 @@ const IMGBB_HOSTS = new Set(["ibb.co", "i.ibb.co"]);
 export function normalizeMedia(input = {}) {
   const source = safeUrl(input.fullSource || input.src || input.url);
   const sourceUrl = safeUrl(input.sourceUrl);
-  const host = source ? new URL(source).hostname.replace(/^www\./, "") : "";
+  const host = absoluteHost(source);
   const provider = input.provider || (IMGBB_HOSTS.has(host) ? "imgbb" : source?.startsWith("assets/") ? "local" : host.includes("supabase") ? "supabase" : "remote");
   return {
     id: input.id || source || "missing-media",
@@ -18,6 +18,11 @@ export function normalizeMedia(input = {}) {
     contentWarning: cleanText(input.contentWarning),
     missing: !source
   };
+}
+
+function absoluteHost(value) {
+  if (!value || !/^https?:\/\//i.test(value)) return "";
+  try { return new URL(value).hostname.replace(/^www\./, ""); } catch { return ""; }
 }
 
 export function isImgBBUrl(value) {

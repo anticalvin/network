@@ -13,7 +13,7 @@ for (const path of [...pages, ...required]) await access(resolve(root, path));
 
 for (const page of pages) {
   const html = await readFile(resolve(root, page), "utf8");
-  const localReferences = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
+  const localReferences = [...html.matchAll(/(?:^|\s)(?:src|href)=["']([^"']+)["']/g)]
     .map((match) => match[1])
     .filter((value) => !/^(?:https?:|#|data:|mailto:)/.test(value));
   for (const reference of localReferences) {

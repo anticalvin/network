@@ -52,7 +52,7 @@ test("provider embeds accept verified shapes and reject impostors", () => {
 test("the XP runtime waits for the separate entry sequence before initializing", async () => {
   const source = await readFile(new URL("../script.js", import.meta.url), "utf8");
   assert.match(source, /if \(window\.AWAKEN_ENTRY_REQUIRED\)[\s\S]*awaken:entry-complete[\s\S]*return;/);
-  assert.match(source, /initializeDesktop\(\{ entryComplete: true \}\)/);
+  assert.match(source, /initializeDesktop\(\{ entryComplete: true, contentLoaded: true \}\)/);
   assert.doesNotMatch(source, /awaken:entry-complete", finishBoot/);
 });
 

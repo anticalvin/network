@@ -38,7 +38,7 @@
   <link rel="icon" href="assets/icons/favicon-96x96.png" type="image/png" sizes="96x96" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="site.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=runtime-9" />
+  <link rel="stylesheet" href="styles.css?v=runtime-11" />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -117,7 +117,7 @@
     <footer id="taskbar" class="taskbar">
       <button id="start-button" class="start-button" type="button" aria-haspopup="menu" aria-expanded="false">
         <span class="start-dot"><img src="https://i.ibb.co/gFPrR060/awaken-eye-black.webp" alt="" /></span>
-        Start
+        <span data-start-label>Start</span>
       </button>
       <div id="task-buttons" class="task-buttons" aria-label="Open windows"></div>
       <div class="system-tray">
@@ -163,14 +163,14 @@
       };
       const showPowerBeat = sessionStorage.getItem("awaken.powerBeatSeen") !== "true";
       sessionStorage.setItem("awaken.powerBeatSeen", "true");
-      frame.src = showPowerBeat ? "./awaken-system/power.html?embedded=1&v=runtime-7" : "./awaken-system/bios.html?embedded=1&v=runtime-7";
+      frame.src = showPowerBeat ? "./awaken-system/power.html?embedded=1&v=runtime-11" : "./awaken-system/bios.html?embedded=1&v=runtime-11";
       armEntryWatchdog();
       frame.addEventListener("error", finishEntry, { once: true });
       addEventListener("message", (event) => {
         if (event.origin !== location.origin || event.source !== frame.contentWindow || event.data?.type !== "awaken:entry") return;
         if (stages.has(event.data.stage)) {
           clearTimeout(entryWatchdog);
-          frame.src = `./awaken-system/${event.data.stage}.html?embedded=1&v=runtime-7`;
+          frame.src = `./awaken-system/${event.data.stage}.html?embedded=1&v=runtime-11`;
           if (event.data.stage !== "login") armEntryWatchdog();
           return;
         }
@@ -180,6 +180,6 @@
       });
     })();
   </script>
-  <script type="module" src="script.js?v=runtime-9"></script>
+  <script type="module" src="script.js?v=runtime-11"></script>
 </body>
 </html>

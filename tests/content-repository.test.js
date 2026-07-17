@@ -53,4 +53,6 @@ test("new bundled managed sections merge safely with an older live snapshot", as
   assert.ok(result.content.filesystem.some((entry) => entry.id === "universe-folder"));
   assert.ok(result.content.filesystem.some((entry) => entry.id === "custom"));
   assert.ok(result.content.networkSites.some((entry) => entry.id === "the-feed"));
+  assert.equal(result.content.interfaceText[0].biosCopyright, "Copyright (C) 2016-2026 AWAKEN ENTERPRISE.");
+  assert.deepEqual(result.content.media, []);
 });

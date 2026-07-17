@@ -1,17 +1,17 @@
-import { defaultContent } from "./src/content/default-content.js?v=runtime-9";
+import { defaultContent } from "./src/content/default-content.js?v=runtime-11";
 import { iconManifest } from "./src/content/icon-manifest.js?v=runtime-9";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
 import { normalizeMedia } from "./src/domain/media.js?v=runtime-9";
 import { selectTransmissions } from "./src/domain/scheduling.js";
-import { ContentRepository } from "./src/data/content-repository.js?v=runtime-9";
+import { ContentRepository } from "./src/data/content-repository.js?v=runtime-11";
 import { brandAssets } from "./src/content/brand-assets.js";
 import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
 import { createSupabaseRestClient } from "./src/data/supabase-client.js";
 import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
-import { renderMediaPlayer } from "./src/apps/media-player/media-player.js";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-11";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
@@ -24,7 +24,7 @@ import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
-import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-9";
+import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-11";
 import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-9";
 
 const BOOT_MESSAGES = [
@@ -285,7 +285,11 @@ async function init() {
   if (window.AWAKEN_ENTRY_REQUIRED) {
     bootloader.style.display = "none";
     osContainer.style.display = "none";
-    document.addEventListener("awaken:entry-complete", () => { void initializeDesktop({ entryComplete: true }); }, { once: true });
+    const frame = document.getElementById("entry-sequence");
+    frame?.addEventListener("load", () => publishEntryContent(frame));
+    await loadManagedRuntimeContent();
+    publishEntryContent(frame);
+    document.addEventListener("awaken:entry-complete", () => { void initializeDesktop({ entryComplete: true, contentLoaded: true }); }, { once: true });
     return;
   }
   await initializeDesktop();
@@ -304,12 +308,18 @@ function fitWindowsToViewport() {
   });
 }
 
-async function initializeDesktop({ entryComplete = false } = {}) {
+async function initializeDesktop({ entryComplete = false, contentLoaded = false } = {}) {
   memoryCard = loadMemoryCard();
   localGalleryFiles = loadLocalGalleryFiles();
   mergeGalleryFiles();
   void refreshSharedGallery();
   galleryRepository.subscribe(() => { void refreshSharedGallery(); });
+  if (!contentLoaded) await loadManagedRuntimeContent();
+  if (entryComplete) finishBoot();
+  else runBoot();
+}
+
+async function loadManagedRuntimeContent() {
   const loaded = await repository.getPublicContent();
   managedContent = loaded.content;
   applyManagedContent();
@@ -320,8 +330,6 @@ async function initializeDesktop({ entryComplete = false } = {}) {
       sources: managedContent.atlasSources
     });
   } else void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
-  if (entryComplete) finishBoot();
-  else runBoot();
 }
 
 function applyManagedContent() {
@@ -331,6 +339,7 @@ function applyManagedContent() {
   WALLPAPERS.splice(0, WALLPAPERS.length, ...mergeManagedThemes(WALLPAPERS, managedContent.themes));
   managedFiles = managedFilesystemEntries(managedContent.filesystem, managedContent.media);
   networkSites = managedNetworkSites(managedContent.networkSites);
+  applyManagedInterface();
   if (hasMemoryUnlock(memoryCard, "archive-signal-wallpaper") && !WALLPAPERS.some((item) => item.id === "archive-signal")) {
     WALLPAPERS.push({ id: "archive-signal", title: "Archive Signal", color: "#050505", image: "assets/img/secret-wallpaper.webp", mode: "cover", detail: "Memory Card unlock" });
   }
@@ -343,6 +352,27 @@ function applyManagedContent() {
     const publishedTitles = new Set(published.map((item) => item.title.toLowerCase()));
     SOCIALS.splice(0, SOCIALS.length, ...published, ...original.filter((item) => !publishedTitles.has(item.title.toLowerCase())));
   }
+}
+
+function interfaceContent() {
+  return { ...defaultContent.interfaceText[0], ...((managedContent.interfaceText || []).find((entry) => entry?.id === "primary") || managedContent.interfaceText?.[0] || {}) };
+}
+
+function applyManagedInterface() {
+  const ui = interfaceContent();
+  document.querySelector(".topbar h1").textContent = ui.productName;
+  document.querySelector(".topbar .signal").textContent = ui.desktopStatus;
+  document.querySelector(".start-head strong").textContent = ui.productName;
+  document.querySelector(".start-head span").textContent = `user: ${ui.userLabel}`;
+  document.getElementById("start-search").placeholder = ui.startPlaceholder;
+  document.querySelector("[data-start-label]").textContent = ui.startButtonLabel;
+  const profileImages = document.querySelectorAll("[data-profile-image]");
+  if (validManagedImageUrl(ui.profileImageUrl)) profileImages.forEach((image) => { image.src = ui.profileImageUrl; });
+}
+
+function publishEntryContent(frame) {
+  if (!frame?.contentWindow) return;
+  frame.contentWindow.postMessage({ type: "awaken:managed-content", interface: interfaceContent() }, location.origin);
 }
 
 function runtimeTeamMembers() {
@@ -499,6 +529,8 @@ function renderStartList(term) {
 
 function createWindow(title, options = {}) {
   closeContextMenu();
+  const mindAssistant = document.getElementById("mind-assistant");
+  if (mindAssistant) mindAssistant.hidden = true;
   const win = document.createElement("section");
   win.className = "window";
   win.dataset.id = `window-${++windowCount}`;
@@ -553,6 +585,7 @@ function createWindow(title, options = {}) {
     task.remove();
     win.remove();
     activateTopWindow();
+    if (!document.querySelector(".window:not([hidden])")) scheduleMindAssistant(8_000);
   });
   header.addEventListener("dblclick", (event) => {
     if (!event.target.closest("button")) toggleMaximize(win);
@@ -804,7 +837,11 @@ function openEntry(entry, explorerContent) {
   if (entry.type === "Image") { openImage(entry); return; }
   if (entry.type === "Audio" || entry.type === "Video") { openMediaFile(entry); return; }
   if (entry.type === "Gallery Image" || entry.type === "Gallery Project") { openAwakenPaint(entry); return; }
-  if (entry.type === "Text") { openText(entry.name, entry.content || entry.detail || "This document is empty."); return; }
+  if (entry.type === "Text") {
+    if (!entry.content && entry.url) { openNetworkUrl(entry.url, { title: entry.name, source: "filesystem" }); return; }
+    openText(entry.name, entry.content || entry.detail || "This document is empty.");
+    return;
+  }
   if (entry.type === "Theme" && entry.wallpaper) { setWallpaper(entry.wallpaper); return; }
   if (entry.type === "Person" && entry.person) { openTeamProfile(entry.person); return; }
   if (entry.type === "Atlas Entity" && entry.atlasEntity) { openAtlasEntity(entry.atlasEntity); return; }
@@ -814,7 +851,8 @@ function openEntry(entry, explorerContent) {
 function openFileViewer(file, message = "") {
   const title = file?.name || file?.title || "Unknown file";
   const { content } = createWindow(title, { appId: file?.id ? `file:${file.id}` : undefined });
-  content.innerHTML = `<section class="file-viewer"><div class="file-viewer-icon">${escapeHtml(iconFor(file?.type))}</div><div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message || file?.detail || file?.content || "This file type has no installed viewer, but its record is intact.")}</p><dl><dt>Type</dt><dd>${escapeHtml(file?.type || "File")}</dd><dt>Path</dt><dd>${escapeHtml(file?.path || "Memory Card")}</dd><dt>Status</dt><dd>${escapeHtml(file?.modified || "available")}</dd></dl></div></section>`;
+  content.innerHTML = `<section class="file-viewer"><div class="file-viewer-icon">${escapeHtml(iconFor(file?.type))}</div><div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message || file?.detail || file?.content || "This file type has no installed viewer, but its record is intact.")}</p><dl><dt>Type</dt><dd>${escapeHtml(file?.type || "File")}</dd><dt>Path</dt><dd>${escapeHtml(file?.path || "Memory Card")}</dd><dt>Status</dt><dd>${escapeHtml(file?.modified || "available")}</dd></dl>${file?.url ? `<button type="button" data-open-file>Open file</button>` : ""}</div></section>`;
+  content.querySelector("[data-open-file]")?.addEventListener("click", () => openNetworkUrl(file.url, { title, source: "filesystem" }));
 }
 
 function openMediaFile(file) {
@@ -904,10 +942,11 @@ function openPackage(id) {
 function openMusic() {
   if (!managedFeatureEnabled(managedContent, "upgradedMediaPlayerEnabled", getRuntimeConfig().features.upgraded_media_player_enabled)) { openText("AWAKEN Media Player", "Media Player is disabled by runtime configuration."); return; }
   if (focusExistingWindow("media-player")) return;
-  const { win, content } = createWindow("AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
+  const ui = interfaceContent();
+  const { win, content } = createWindow(ui.mediaPlayerName || "AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
   const publicReleaseSlugs = new Set(PUBLIC_ATLAS.entities.filter((entity) => entity.entityType === "release").map((entity) => entity.slug));
   const atlasProjects = PROJECTS.filter((project) => publicReleaseSlugs.has(project.id));
-  const cleanup = renderMediaPlayer(content, { projects: atlasProjects, links: LINKS, audio: document.getElementById("audio-snippet") });
+  const cleanup = renderMediaPlayer(content, { projects: atlasProjects, links: LINKS, audio: document.getElementById("audio-snippet"), media: managedContent.media, interfaceText: ui });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
@@ -1384,7 +1423,12 @@ function scheduleMindAssistant(delay = 50_000) {
 
 function showMindAssistant({ force = false } = {}) {
   const assistant = document.getElementById("mind-assistant");
-  if (!assistant || document.hidden || document.querySelector(".gallery-dirty")) { scheduleMindAssistant(30_000); return; }
+  const desktopBusy = matchMedia("(max-width: 760px)").matches || Boolean(document.querySelector(".window:not([hidden])"));
+  if (!assistant || document.hidden || desktopBusy || document.querySelector(".gallery-dirty")) {
+    if (assistant) assistant.hidden = true;
+    scheduleMindAssistant(30_000);
+    return;
+  }
   const snoozedUntil = Number(sessionStorage.getItem("awaken.mindSnoozedUntil") || 0);
   if (!force && snoozedUntil > Date.now()) { scheduleMindAssistant(Math.min(snoozedUntil - Date.now(), 60_000)); return; }
   const prompts = (managedContent.mindPrompts || defaultContent.mindPrompts || []).filter((item) => item?.enabled !== false && item?.message);
@@ -1406,7 +1450,7 @@ function runtimeAdDefinitions() {
   if (!managed.length) return DEFAULT_ADS;
   return managed.map((entry) => {
     const base = DEFAULT_ADS.find((item) => item.id === entry.id) || {};
-    return { ...base, id: entry.id, title: entry.title || base.title, copy: entry.copy || base.copy || "AWAKEN NETWORK signal received.", enabled: entry.enabled !== false, type: entry.type || base.type, weight: Number(entry.weight ?? base.weight ?? 1), minimum_session_age_ms: Number(entry.minimumSessionAgeMs ?? base.minimum_session_age_ms ?? 0), cooldown_ms: Number(entry.cooldownMs ?? base.cooldown_ms ?? 0), maximum_per_session: Number(entry.maximumPerSession ?? base.maximum_per_session ?? 1), maximum_per_day: Number(entry.maximumPerDay ?? base.maximum_per_day ?? 1), start_at: entry.startAt || null, end_at: entry.endAt || null, action_type: entry.actionType || base.action_type, content_reference: entry.contentReference || base.content_reference, eligible_contexts: base.eligible_contexts || ["desktop"], excluded_contexts: base.excluded_contexts || ["gallery-dirty", "admin", "upload", "text-input"] };
+    return { ...base, id: entry.id, title: entry.title || base.title, copy: entry.copy || base.copy || "AWAKEN NETWORK signal received.", media_url: entry.mediaUrl || base.media_url, destination_url: entry.destinationUrl || base.destination_url, enabled: entry.enabled !== false, type: entry.type || base.type, weight: Number(entry.weight ?? base.weight ?? 1), minimum_session_age_ms: Number(entry.minimumSessionAgeMs ?? base.minimum_session_age_ms ?? 0), cooldown_ms: Number(entry.cooldownMs ?? base.cooldown_ms ?? 0), maximum_per_session: Number(entry.maximumPerSession ?? base.maximum_per_session ?? 1), maximum_per_day: Number(entry.maximumPerDay ?? base.maximum_per_day ?? 1), start_at: entry.startAt || null, end_at: entry.endAt || null, action_type: entry.actionType || base.action_type, content_reference: entry.contentReference || base.content_reference, eligible_contexts: base.eligible_contexts || ["desktop"], excluded_contexts: base.excluded_contexts || ["gallery-dirty", "admin", "upload", "text-input"] };
   });
 }
 
@@ -1424,11 +1468,12 @@ async function showManagedAd(ad, preview = false) {
       copy = eligible.at(-1)?.body || copy;
     } catch { /* Approved bundled copy remains visible. */ }
   }
-  const memoryItem = { id: ad.id, type: "ad", title: ad.title, body: copy, contentReference: ad.content_reference, actionType: ad.action_type };
+  const memoryItem = { id: ad.id, type: "ad", title: ad.title, body: copy, contentReference: ad.content_reference, actionType: ad.action_type, url: ad.destination_url };
+  const media = validRemoteImageUrl(ad.media_url) ? `<img class="managed-ad-media" src="${escapeHtml(ad.media_url)}" alt="" loading="lazy">` : "";
   const presentation = ad.type === "messenger"
     ? `<div class="managed-ad-social"><span>AW</span><div><strong>CALL-AWAKEN</strong><small>posted to THE FEED / just now</small></div></div><p class="managed-ad-post">${escapeHtml(copy)}</p><div class="managed-ad-reactions"><span>REMEMBER</span><span>3 SIGNALS</span><span>1 MISSED CALL</span></div>`
     : `<strong>${escapeHtml(ad.type === "security" ? "UNREGISTERED MEMORY DETECTED" : ad.title)}</strong><p>${escapeHtml(copy)}</p>`;
-  content.innerHTML = `<div class="managed-ad-body">${presentation}<small>${escapeHtml(ad.content_reference || "AWAKEN NETWORK")}</small><div><button type="button" data-ad-action>${ad.action_type === "recover" ? "RECOVER + SAVE" : "OPEN + SAVE"}</button><button type="button" data-ad-close>MOVE TO TRASH</button></div></div>`;
+  content.innerHTML = `<div class="managed-ad-body">${media}${presentation}<small>${escapeHtml(ad.content_reference || "AWAKEN NETWORK")}</small><div><button type="button" data-ad-action>${ad.action_type === "recover" ? "RECOVER + SAVE" : "OPEN + SAVE"}</button><button type="button" data-ad-close>MOVE TO TRASH</button></div></div>`;
   const close = () => win.querySelector(".window-controls button:last-child")?.click();
   content.querySelector("[data-ad-close]").addEventListener("click", () => { trashPopup(memoryItem); close(); });
   content.querySelector("[data-ad-action]").addEventListener("click", () => {
@@ -1438,7 +1483,8 @@ async function showManagedAd(ad, preview = false) {
       const result = recoverToMemoryCard(`ad:${ad.id}`);
       content.querySelector(".managed-ad-body").innerHTML = `<strong>RECOVERY COMPLETE</strong><p>The popup and ${result.created.length} new fragment${result.created.length === 1 ? "" : "s"} were saved to the Memory Card.</p><button type="button" data-ad-close>OK</button>`;
       content.querySelector("[data-ad-close]").addEventListener("click", close);
-    } else if (ad.action_type === "message") openExplorer("A:\\Archive\\Assets");
+    } else if (ad.action_type === "open" && ad.destination_url) openNetworkUrl(ad.destination_url, { title: ad.title, source: "managed-ad" });
+    else if (ad.action_type === "message") openExplorer("A:\\Archive\\Assets");
     else openTerminal("scan");
   });
   win.addEventListener("awaken:window-close", () => awakenBus.emit(AWAKEN_EVENTS.ADS_CLOSE, { id: ad.id }), { once: true });
@@ -1765,6 +1811,10 @@ function validRemoteImageUrl(value) {
   } catch {
     return false;
   }
+}
+
+function validManagedImageUrl(value) {
+  return /^assets\/[a-z0-9_./-]+$/i.test(String(value || "")) || validRemoteImageUrl(value);
 }
 
 function bindDesktopContextMenu() {

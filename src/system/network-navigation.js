@@ -4,7 +4,7 @@ export const NETWORK_DESTINATIONS = Object.freeze({
   awakenDomains: Object.freeze(["awakencult.com"]),
   awakenHosts: Object.freeze(["anticalvin.github.io"]),
   approvedToolHosts: Object.freeze(["calvinck.com"]),
-  externalHosts: Object.freeze(["vzn.awakencult.com"]),
+  externalHosts: Object.freeze(["noise.awakencult.com"]),
   mediaHosts: Object.freeze(["music.apple.com", "embed.music.apple.com", "open.spotify.com", "soundcloud.com", "w.soundcloud.com"]),
   downloadExtensions: Object.freeze(["zip", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "mp3", "wav", "m4a", "ogg", "png", "jpg", "jpeg", "webp", "gif", "json"])
 });

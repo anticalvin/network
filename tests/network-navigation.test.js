@@ -34,8 +34,9 @@ test("generic external websites require the controlled warning", () => {
   assert.equal(result.requiresExternalConfirmation, true);
 });
 
-test("VZN deliberately continues externally while approved portfolio tools can embed", () => {
-  assert.equal(classifyNetworkUrl("https://vzn.awakencult.com/").kind, "external");
+test("NOISE deliberately continues externally while VZN and approved portfolio tools can embed", () => {
+  assert.equal(classifyNetworkUrl("https://noise.awakencult.com/").kind, "external");
+  assert.equal(classifyNetworkUrl("https://vzn.awakencult.com/").kind, "awaken");
   assert.equal(classifyNetworkUrl("https://calvinck.com/").kind, "awaken");
 });
 

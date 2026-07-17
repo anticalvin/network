@@ -4,15 +4,16 @@ import { AWAKEN_EVENTS, awakenBus } from "../../system/event-bus.js";
 const FREQUENCIES = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 const PRESETS = { flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bass: [8, 7, 5, 3, 1, 0, -1, -2, -2, -2], vocal: [-3, -2, -1, 1, 3, 5, 5, 3, 1, -1], bright: [-3, -2, -1, 0, 1, 2, 4, 6, 7, 8], club: [5, 4, 2, 0, -1, 1, 3, 4, 5, 4] };
 
-export function renderMediaPlayer(container, { projects = [], links = {}, audio: previewAudio = null }) {
-  container.innerHTML = playerMarkup(projects);
+export function renderMediaPlayer(container, { projects = [], links = {}, audio: previewAudio = null, media = [], interfaceText = {} }) {
+  container.innerHTML = playerMarkup(projects, interfaceText);
   const find = (selector) => container.querySelector(selector);
   const audio = document.createElement("audio");
+  audio.crossOrigin = "anonymous";
   audio.preload = "metadata";
   let audioContext = null;
   let analyser = null;
   let filters = [];
-  let playlist = [];
+  let playlist = managedAudioTracks(media);
   let currentIndex = -1;
   let visualization = 0;
   let frame = 0;
@@ -75,7 +76,7 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
     currentIndex = (index + playlist.length) % playlist.length;
     audio.src = playlist[currentIndex].url;
     find("[data-title]").textContent = playlist[currentIndex].name.replace(/\.[^.]+$/, "");
-    find("[data-artist]").textContent = "Local media / AWAKEN Gallery compatible";
+    find("[data-artist]").textContent = playlist[currentIndex].artist || "AWAKEN managed media";
     renderPlaylist();
     if (autoplay) void play();
   }
@@ -106,7 +107,7 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
     const frame = find("[data-stream-frame]");
     if (!source) { find("[data-status]").textContent = `That ${provider} URL is not supported.`; return; }
     frame.innerHTML = `<iframe title="Official ${provider} player" src="${escapeHtml(source)}" loading="lazy" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
-    find("[data-status]").textContent = `Official ${provider} embed loaded. EQ applies only to local audio.`;
+    find("[data-status]").textContent = `Official ${provider} embed loaded. Browser security keeps its audio separate; EQ and live analysis apply to AWAKEN uploads and direct audio.`;
   }
 
   find("[data-files]").addEventListener("change", (event) => addFiles(event.target.files));
@@ -131,6 +132,8 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   audio.addEventListener("timeupdate", () => { find("[data-current]").textContent = formatTime(audio.currentTime); find("[data-duration]").textContent = formatTime(audio.duration); find("[data-seek]").value = audio.duration ? String(audio.currentTime / audio.duration * 1000) : "0"; });
   audio.addEventListener("ended", () => loadTrack(currentIndex + 1, true));
   drawVisualizer(find("canvas"), () => ({ analyser, visualization, disposed }), (id) => { frame = id; });
+  renderPlaylist();
+  if (playlist.length) loadTrack(0, false);
   awakenBus.emit(AWAKEN_EVENTS.MEDIA_OPEN);
 
   return () => {
@@ -144,8 +147,20 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   };
 }
 
-function playerMarkup(projects) {
-  return `<div class="media-studio"><aside class="media-library"><strong>AWAKEN Media Player</strong><span>Media Library</span><span>Local Audio</span><span>Atlas Releases</span><span>Official Streams</span></aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>AWAKEN local signal</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>Verified public Atlas releases</h3><div>${projects.filter((project) => project.tracks?.length).map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button></div><div><input data-stream-url placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset>${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status>Ready</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
+function playerMarkup(projects, interfaceText) {
+  const name = escapeHtml(interfaceText.mediaPlayerName || "AWAKEN Media Player");
+  const tagline = escapeHtml(interfaceText.mediaPlayerTagline || "AWAKEN local signal");
+  return `<div class="media-studio"><aside class="media-library"><strong>${name}</strong><span>Media Library</span><span>Admin Audio</span><span>Local Audio</span><span>Atlas Releases</span><span>Official Streams</span></aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>${tagline}</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>Verified public Atlas releases</h3><div>${projects.filter((project) => project.tracks?.length).map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button></div><div><input data-stream-url placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset>${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status>Ready / EQ controls AWAKEN-hosted and local audio</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
+}
+
+function managedAudioTracks(media) {
+  return (Array.isArray(media) ? media : [])
+    .filter((item) => item?.processingStatus === "ready" && item?.moderationStatus === "approved" && String(item.mimeType || "").startsWith("audio/") && safeHttpUrl(item.externalUrl))
+    .map((item) => ({ name: item.originalFilename || item.caption || "AWAKEN audio", artist: item.caption || "Published from AWAKEN Admin", type: item.mimeType, url: item.externalUrl, managed: true }));
+}
+
+function safeHttpUrl(value) {
+  try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; }
 }
 
 function drawVisualizer(canvas, state, setFrame) {

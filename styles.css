@@ -8,7 +8,10 @@
   --chrome: #e9edf4;
   --line: #24324d;
   --shadow: 0 18px 42px rgba(0, 0, 0, 0.38);
-  --topbar-h: 28px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --topbar-h: calc(28px + var(--safe-top));
   --taskbar-h: calc(42px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -141,6 +144,7 @@
 .managed-ad-body > strong { display: block; margin-bottom: 9px; font-size: 14px; }
 .managed-ad-body small { display: block; margin: 10px 0; color: #555; }
 .managed-ad-body > div { display: flex; justify-content: flex-end; gap: 5px; }
+.managed-ad-media { display: block; width: 100%; max-height: 180px; margin: 0 0 12px; object-fit: cover; border: 2px inset #fff; background: #111; }
 .managed-ad-security .window-header { background: linear-gradient(#e46a60, #a51e19); }
 .managed-ad-messenger .managed-ad-body { padding: 0; border-left-color: #245edb; background: #eef2f8; }
 .managed-ad-social { display: grid; grid-template-columns: 42px 1fr; gap: 9px; align-items: center; padding: 10px; color: #fff; background: #17498d; }
@@ -325,7 +329,7 @@ button {
   grid-template-columns: minmax(118px, 1fr) auto auto auto;
   align-items: center;
   gap: 14px;
-  padding: 0 10px;
+  padding: var(--safe-top) max(10px, var(--safe-right)) 0 max(10px, var(--safe-left));
   color: #fff;
   background: linear-gradient(#141414, #050505);
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
@@ -424,7 +428,7 @@ button {
   max-width: 100%;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px max(5px, env(safe-area-inset-bottom, 0px));
+  padding: 5px max(8px, var(--safe-right)) max(5px, env(safe-area-inset-bottom, 0px)) max(8px, var(--safe-left));
   color: #fff;
   background: linear-gradient(#236bd7 0%, #1558c8 44%, #0e3f98 100%);
   border-top: 1px solid #6aa4ff;
@@ -1542,7 +1546,7 @@ html[data-reduced-motion="true"] *::after {
 
 @media (max-width: 760px) {
   :root {
-    --topbar-h: 34px;
+    --topbar-h: calc(34px + var(--safe-top));
     --taskbar-h: calc(48px + env(safe-area-inset-bottom, 0px));
   }
 
@@ -1590,7 +1594,7 @@ html[data-reduced-motion="true"] *::after {
 
   .taskbar {
     gap: 5px;
-    padding: 2px 5px max(2px, env(safe-area-inset-bottom, 0px));
+    padding: 2px max(5px, var(--safe-right)) max(2px, env(safe-area-inset-bottom, 0px)) max(5px, var(--safe-left));
   }
 
   .window-header {
@@ -1654,11 +1658,7 @@ html[data-reduced-motion="true"] *::after {
   }
 
   .mind-assistant {
-    left: 8px;
-    right: 8px;
-    bottom: calc(var(--taskbar-h) + 8px);
-    width: auto;
-    grid-template-columns: 58px minmax(0, 1fr);
+    display: none !important;
   }
   .mind-assistant-eye { width: 58px; height: 70px; padding: 6px; }
   .mind-assistant-actions button { min-height: 44px; }

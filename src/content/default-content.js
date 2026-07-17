@@ -11,6 +11,27 @@ export const defaultContent = {
     memoryCardEmpty: "Nothing saved yet. Save an archive item, image, link, or transmission to keep it here.",
     remoteFallback: "Showing the last safe local edition."
   },
+  interfaceText: [
+    {
+      id: "primary",
+      productName: "AWAKEN NETWORK",
+      desktopStatus: "NETWORK ONLINE",
+      softwareName: "AWAKEN SOFTWARE",
+      softwareEdition: "network professional / guest edition",
+      biosCopyright: "Copyright (C) 2016-2026 AWAKEN ENTERPRISE.",
+      biosRevision: "Revision 4.2 / Parallel Systems Division",
+      loginProductName: "AWAKEN NETWORK",
+      loginIntro: "Select a session to enter the system.",
+      profileName: "AWAKEN Guest",
+      profileDescription: "Local archive access. Memory Card begins in visitor mode.",
+      profileImageUrl: "assets/img/smiley-black.png",
+      userLabel: "visitor",
+      startButtonLabel: "Start",
+      startPlaceholder: "Search apps, files, projects...",
+      mediaPlayerName: "AWAKEN Media Player",
+      mediaPlayerTagline: "AWAKEN local signal"
+    }
+  ],
   links: [
     { id: "website", label: "Website", detail: "Official AWAKEN CULT site.", url: "https://awakencult.com/", verified: true },
     { id: "instagram", label: "Instagram", detail: "Official @awakencult profile.", url: "https://instagram.com/awakencult", verified: true },
@@ -82,11 +103,15 @@ export const defaultContent = {
     { id: "awaken-messenger", slug: "messenger", title: "AWAKEN MESSENGER", tagline: "Everyone is away. Everyone is typing.", body: "BUDDY LIST (3/99 ONLINE)\n\nNO.END.THEORY  [away: rebuilding reality]\nNa$he           [online]\nCALL-AWAKEN     [typing...]\n\nSYSTEM MESSAGE\nYou cannot block a contact that has not happened yet.", accent: "#37a24f", status: "published", sortOrder: 5 },
     { id: "dream-authority", slug: "dream-authority", title: "DREAM AUTHORITY", tagline: "Official forms for unofficial experiences.", body: "FORM 11-B: RECURRING LOCATION REQUEST\n\nLocation: an empty mall with the AWAKEN Shop open\nFrequency: every third login\nMusic heard: unknown / familiar\n\nSTATUS: APPLICATION RETURNED\nREASON: DREAM ALREADY IN PRODUCTION", accent: "#b7bcc8", status: "published", sortOrder: 6 }
   ],
+  media: [],
   ads: [
     { id: "security-memory", title: "AWAKEN SECURITY CENTRE", copy: "Unregistered save fragments were found. Insert Memory Card to recover bonus archive data.", enabled: true, type: "security", weight: 3, minimumSessionAgeMs: 45000, cooldownMs: 600000, maximumPerSession: 1, maximumPerDay: 2, actionType: "recover", contentReference: "recovery-default" },
     { id: "messenger-unknown", title: "AWAKEN Messenger", copy: "CALL-AWAKEN is typing a message from an unknown year.", enabled: true, type: "messenger", weight: 2, minimumSessionAgeMs: 90000, cooldownMs: 900000, maximumPerSession: 1, maximumPerDay: 1, actionType: "message", contentReference: "mind-recent" },
     { id: "shop-catalog", title: "SHOP CATALOG UPDATE", copy: "Three objects without prices were added to the coming-soon catalog.", enabled: true, type: "installer", weight: 1, minimumSessionAgeMs: 120000, cooldownMs: 1200000, maximumPerSession: 1, maximumPerDay: 1, actionType: "connect", contentReference: "SHOP.EXE / BUILD 0.37" },
-    { id: "missed-call", title: "MISSED NETWORK CALL", copy: "You missed a zero-second call from your own guest session.", enabled: true, type: "dialer", weight: 1, minimumSessionAgeMs: 150000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "connect", contentReference: "CALL-AWAKEN / 03:33" }
+    { id: "missed-call", title: "MISSED NETWORK CALL", copy: "You missed a zero-second call from your own guest session.", enabled: true, type: "dialer", weight: 1, minimumSessionAgeMs: 150000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "connect", contentReference: "CALL-AWAKEN / 03:33" },
+    { id: "social-x-signal", title: "PUBLIC LINE INTERCEPT", copy: "A short transmission was detected outside the archive. The timestamp is newer than this session.", enabled: true, type: "messenger", weight: 1, minimumSessionAgeMs: 180000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "open", destinationUrl: "https://x.com/awakencult", contentReference: "X / @awakencult" },
+    { id: "social-instagram-signal", title: "ARCHIVE CONTACT SHEET", copy: "A sequence of images appeared outside the NETWORK. Several frames have not happened yet.", enabled: true, type: "security", weight: 1, minimumSessionAgeMs: 195000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "open", destinationUrl: "https://instagram.com/awakencult", contentReference: "IMAGE LINE / @awakencult" },
+    { id: "social-youtube-signal", title: "CHANNEL ZERO TAPE", copy: "Moving pictures recovered from a channel with no listed broadcast time.", enabled: true, type: "installer", weight: 1, minimumSessionAgeMs: 210000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "open", destinationUrl: "https://www.youtube.com/@awakencult", contentReference: "VIDEO CHANNEL / @awakencult" }
   ],
   featureFlags: [
     { id: "runtime", title: "Runtime integrations", adsRuntimeEnabled: true, intrusionEnabled: true, galleryStudioEnabled: true, upgradedMediaPlayerEnabled: true, universeSitesEnabled: true, mindAssistantEnabled: true }

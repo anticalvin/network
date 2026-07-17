@@ -1,5 +1,5 @@
-import { defaultContent } from "../src/content/default-content.js?v=runtime-9";
-import { ContentRepository } from "../src/data/content-repository.js?v=runtime-9";
+import { defaultContent } from "../src/content/default-content.js?v=runtime-11";
+import { ContentRepository } from "../src/data/content-repository.js?v=runtime-11";
 import { safeUrl } from "../src/domain/media.js?v=runtime-9";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
 import { TEAM_MEMBERS } from "../src/content/contributors.js?v=runtime-9";
@@ -20,9 +20,11 @@ let content = initialContent.content;
 let section = "transmissions";
 let selectedIndex = null;
 const ADMIN_ASSET_BUCKET = "awaken-admin-assets";
-const MAX_WALLPAPER_BYTES = 6 * 1024 * 1024;
+const MAX_ADMIN_ASSET_BYTES = 6 * 1024 * 1024;
+const ADMIN_ASSET_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "audio/mpeg", "audio/wav", "audio/mp4", "audio/ogg", "video/mp4", "video/webm", "application/pdf", "application/json", "application/zip", "text/plain"]);
 
 const schemas = {
+  interfaceText: [["productName", "Desktop product name", "text", true], ["desktopStatus", "Desktop status", "text", true], ["softwareName", "Startup software name", "text", true], ["softwareEdition", "Startup edition text", "text"], ["biosCopyright", "BIOS copyright line", "text", true], ["biosRevision", "BIOS revision line", "text"], ["loginProductName", "Login product name", "text"], ["loginIntro", "Login introduction", "textarea"], ["profileName", "Guest profile name", "text"], ["profileDescription", "Guest profile biography", "textarea"], ["profileImageUrl", "Guest profile photo URL", "url"], ["profileImageUpload", "Upload guest profile photo", "asset", false, ["image/*"]], ["userLabel", "Desktop user label", "text"], ["startButtonLabel", "Start button text", "text"], ["startPlaceholder", "Start search placeholder", "text"], ["mediaPlayerName", "Media Player name", "text"], ["mediaPlayerTagline", "Media Player tagline", "text"]],
   transmissions: [
     ["internalTitle", "Internal title", "text", true], ["publicTitle", "Public title", "text", true],
     ["primaryCopy", "Primary copy", "textarea", true], ["secondaryCopy", "Secondary copy", "textarea"],
@@ -35,11 +37,11 @@ const schemas = {
   themes: [["label", "Label", "text", true], ["color", "Fallback color", "color", true], ["imageUrl", "Wallpaper image URL", "url"], ["imageUpload", "Upload wallpaper photo", "file"], ["fitMode", "Image fit", "select", true, ["cover", "contain", "tile"]], ["enabled", "Enabled", "checkbox"], ["sortOrder", "Sort order", "number"]],
   fragments: [["title", "Title", "text", true], ["body", "Text", "textarea", true], ["sourceType", "Source type", "text", true], ["sourceRef", "Source record", "text", true], ["status", "Status", "select", true, ["draft", "published", "archived"]]],
   mindPrompts: [["title", "Internal title", "text", true], ["message", "MIND message", "textarea", true], ["enabled", "Enabled", "checkbox"], ["weight", "Frequency weight", "number"]],
-  filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["content", "Text / file content", "textarea"], ["detail", "Description", "textarea"], ["externalUrl", "Media or destination URL", "url"], ["mediaId", "Media library ID", "text"], ["mimeType", "MIME type", "text"], ["size", "Display size", "text"], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
+  filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["content", "Text / file content", "textarea"], ["detail", "Description", "textarea"], ["externalUrl", "Media or destination URL", "url"], ["fileUpload", "Upload file", "asset"], ["mediaId", "Media library ID", "text"], ["mimeType", "MIME type", "text"], ["size", "Display size", "text"], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
   networkSites: [["title", "Site title", "text", true], ["slug", "Address slug", "text", true], ["tagline", "Tagline", "textarea", true], ["body", "Page content", "textarea", true], ["accent", "Accent", "color", true], ["status", "Status", "select", true, ["draft", "published", "archived"]], ["sortOrder", "Sort order", "number"]],
-  media: [["originalFilename", "Filename", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "External URL", "url"], ["mimeType", "MIME type", "text", true], ["caption", "Caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
+  media: [["originalFilename", "Filename / track title", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "Media URL", "url"], ["fileUpload", "Upload media file", "asset"], ["mimeType", "MIME type", "text", true], ["caption", "Artist / caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
   campaigns: [["slug", "Slug", "text", true], ["title", "Title", "text", true], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]], ["weight", "Weight", "number"], ["startsAt", "Starts", "datetime-local"], ["endsAt", "Ends", "datetime-local"]],
-  ads: [["title", "Title", "text", true], ["copy", "Popup copy", "textarea", true], ["enabled", "Enabled", "checkbox"], ["type", "Type", "select", true, ["security", "messenger", "installer", "memory", "dialer"]], ["weight", "Weight", "number"], ["minimumSessionAgeMs", "Minimum session age (ms)", "number"], ["cooldownMs", "Cooldown (ms)", "number"], ["maximumPerSession", "Maximum per session", "number"], ["maximumPerDay", "Maximum per day", "number"], ["actionType", "Action", "select", true, ["recover", "message", "connect"]], ["contentReference", "Content reference", "text"], ["startAt", "Campaign starts", "datetime-local"], ["endAt", "Campaign ends", "datetime-local"]],
+  ads: [["title", "Title", "text", true], ["copy", "Popup copy", "textarea", true], ["mediaUrl", "Popup image URL", "url"], ["mediaUpload", "Upload popup image", "asset", false, ["image/*"]], ["destinationUrl", "Open destination URL", "url"], ["enabled", "Enabled", "checkbox"], ["type", "Type", "select", true, ["security", "messenger", "installer", "memory", "dialer"]], ["weight", "Weight", "number"], ["minimumSessionAgeMs", "Minimum session age (ms)", "number"], ["cooldownMs", "Cooldown (ms)", "number"], ["maximumPerSession", "Maximum per session", "number"], ["maximumPerDay", "Maximum per day", "number"], ["actionType", "Action", "select", true, ["recover", "message", "connect", "open"]], ["contentReference", "Content reference", "text"], ["startAt", "Campaign starts", "datetime-local"], ["endAt", "Campaign ends", "datetime-local"]],
   featureFlags: [["title", "Configuration", "text", true], ["adsRuntimeEnabled", "Ads runtime enabled", "checkbox"], ["intrusionEnabled", "Intrusion enabled", "checkbox"], ["galleryStudioEnabled", "AWAKEN Paint enabled", "checkbox"], ["upgradedMediaPlayerEnabled", "Upgraded Media Player enabled", "checkbox"], ["universeSitesEnabled", "NETWORK universe sites enabled", "checkbox"], ["mindAssistantEnabled", "MIND desktop assistant enabled", "checkbox"]],
   gallerySubmissions: [["title", "Title", "text", true], ["creator", "Creator", "text", true], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]], ["atlasEntityId", "Atlas entity", "text"], ["createdAt", "Submitted", "datetime-local"]],
   mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]],
@@ -51,10 +53,11 @@ const schemas = {
 };
 
 content.filesystem ||= [{ id: "local-community-xp", name: "XP", path: "A:\\Community\\XP", nodeType: "folder", visibility: "public", status: "published" }];
+content.interfaceText = ensurePrimaryInterface(content.interfaceText);
 content.themes = ensureEditableDefaultTheme(content.themes);
 content.mindPrompts ||= structuredClone(defaultContent.mindPrompts);
 content.networkSites ||= structuredClone(defaultContent.networkSites);
-content.media ||= [{ id: "local-wallpaper-default", originalFilename: "awaken-default.webp", provider: "imgbb", externalUrl: "https://i.ibb.co/F4cCLp3t/a3a6a063-4a72-4b8a-b693-b774e7acbf81.webp", mimeType: "image/webp", processingStatus: "ready", moderationStatus: "approved" }];
+content.media ||= [];
 content.campaigns ||= [{ id: "local-call-awaken", slug: "call-awaken", title: "CALL-AWAKEN", status: "draft", weight: 1 }];
 content.mindBridge ||= [{ id: "xp", displayName: "XP", discordGuildId: "946069318473502770", discordChannelId: "1525921490414080031", connectionStatus: "Server-managed", publicVisible: true }];
 content.contributors = ensureContributorDefaults(content.contributors);
@@ -212,13 +215,14 @@ document.getElementById("new-entry").addEventListener("click", createEntry);
 function render() {
   document.getElementById("section-title").textContent = titleCase(section);
   const list = document.getElementById("entry-list");
-  document.getElementById("new-entry").hidden = section === "gallerySubmissions";
+  document.getElementById("new-entry").hidden = ["gallerySubmissions", "interfaceText"].includes(section);
+  document.getElementById("new-entry").textContent = section === "filesystem" ? "New folder or file" : "New";
   list.innerHTML = "";
   (content[section] || []).forEach((entry, index) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `entry${selectedIndex === index ? " active" : ""}`;
-    button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.moderationStatus || entry.publicationState || entry.sourceType || entry.slug || entry.applicationId || entry.url || entry.color || "draft")}</small>`;
+    button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.displayName || entry.productName || entry.name || entry.label || entry.title || entry.predicate || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.moderationStatus || entry.publicationState || entry.sourceType || entry.slug || entry.applicationId || entry.url || entry.color || (section === "interfaceText" ? "live interface" : "draft"))}</small>`;
     button.addEventListener("click", () => { selectedIndex = index; editorDirty = false; render(); });
     list.appendChild(button);
   });
@@ -239,6 +243,12 @@ function createEntry() {
             ? { id, label: "New wallpaper", color: "#da4a44", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: (content.themes || []).length }
             : section === "mindPrompts"
               ? { id, title: "New MIND message", message: "", enabled: true, weight: 1 }
+              : section === "filesystem"
+                ? { id, name: "New Folder", path: "A:\\New Folder", nodeType: "folder", visibility: "public", status: "published" }
+                : section === "media"
+                  ? { id, originalFilename: "New media", provider: "supabase", externalUrl: null, mimeType: "audio/mpeg", processingStatus: "ready", moderationStatus: "approved" }
+                  : section === "ads"
+                    ? { id, title: "NEW NETWORK SIGNAL", copy: "Signal received.", enabled: true, type: "messenger", weight: 1, minimumSessionAgeMs: 60000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "open" }
               : { id, status: "draft" };
   content[section] = [base, ...(content[section] || [])];
   selectedIndex = 0;
@@ -249,11 +259,13 @@ function renderEditor() {
   const form = document.getElementById("editor-form");
   if (selectedIndex === null) { form.innerHTML = `<div class="editor-empty">Select an entry or create a new one.</div>`; return; }
   const entry = content[section][selectedIndex];
-  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2>${section === "themes" ? themePreviewMarkup(entry) : ""}<div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}<button type="button" data-duplicate>Duplicate</button>${section === "themes" && entry.id === "awaken-default" ? "" : `<button class="danger" type="button" data-delete>Delete</button>`}<span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
+  const lockedRecord = section === "interfaceText" || (section === "themes" && entry.id === "awaken-default");
+  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.productName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2>${section === "themes" ? themePreviewMarkup(entry) : ""}<div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}${section === "interfaceText" ? "" : `<button type="button" data-duplicate>Duplicate</button>`}${lockedRecord ? "" : `<button class="danger" type="button" data-delete>Delete</button>`}<span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
   form.addEventListener("submit", saveForm);
-  form.querySelector("[data-duplicate]").addEventListener("click", duplicateEntry);
+  form.querySelector("[data-duplicate]")?.addEventListener("click", duplicateEntry);
   form.querySelector("[data-delete]")?.addEventListener("click", deleteEntry);
   form.querySelector("[data-theme-upload]")?.addEventListener("change", uploadThemeWallpaper);
+  form.querySelectorAll("[data-asset-upload]").forEach((input) => input.addEventListener("change", uploadAdminAsset));
   form.querySelector("[name='imageUrl']")?.addEventListener("input", updateThemePreview);
   form.querySelector("[name='color']")?.addEventListener("input", updateThemePreview);
   form.querySelector("[data-preview-ad]")?.addEventListener("click", () => window.open(`./index.html?skipBoot&adminPreview&previewAd=${encodeURIComponent(entry.id)}`, "_blank", "noopener,noreferrer"));
@@ -297,7 +309,7 @@ function captureEditor(form) {
   const entry = { ...content[section][selectedIndex] };
   let invalidJson = false;
   schemas[section].forEach(([key, , type]) => {
-    if (type === "file") return;
+    if (["file", "asset"].includes(type)) return;
     if (type === "checkbox") entry[key] = form.elements[key].checked;
     else if (type === "number") entry[key] = Number(data.get(key) || 0);
     else if (type === "csv") entry[key] = String(data.get(key) || "").split(",").map((item) => item.trim()).filter(Boolean);
@@ -352,8 +364,15 @@ function fieldMarkup([key, label, type, required, options], entry) {
   if (type === "select") return `<label class="field">${label}<select name="${key}" ${required ? "required" : ""}>${options.map((option) => `<option value="${option}" ${option === value ? "selected" : ""}>${titleCase(option)}</option>`).join("")}</select></label>`;
   if (type === "checkbox") return `<label class="field"><span>${label}</span><input name="${key}" type="checkbox" ${value ? "checked" : ""} /></label>`;
   if (type === "file") return `<label class="field field-wide">${label}<input name="${key}" type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-theme-upload /><small>JPG, PNG, WebP or GIF up to 6 MB. Sign in as admin before uploading.</small></label>`;
+  if (type === "asset") return `<label class="field field-wide">${label}<input name="${key}" type="file" accept="${escapeHtml((options || ["image/*", "audio/*", "video/*", ".pdf", ".txt", ".json", ".zip"]).join(","))}" data-asset-upload /><small>Public image, audio, video, PDF, text, JSON or ZIP up to 6 MB.</small></label>`;
   const displayValue = type === "datetime-local" && value ? String(value).slice(0, 16) : value;
   return `<label class="field">${label}<input name="${key}" type="${type}" value="${escapeHtml(String(displayValue))}" ${required ? "required" : ""} /></label>`;
+}
+
+function ensurePrimaryInterface(entries = []) {
+  const primary = structuredClone(defaultContent.interfaceText[0]);
+  const published = Array.isArray(entries) ? entries.find((entry) => entry?.id === "primary") || entries[0] : null;
+  return [{ ...primary, ...(published || {}), id: "primary" }];
 }
 
 function ensureEditableDefaultTheme(themes = []) {
@@ -392,7 +411,7 @@ async function uploadThemeWallpaper(event) {
   if (!authClient) { showStatus("Supabase Storage is unavailable.", true); input.value = ""; return; }
   const { data: sessionData } = await authClient.auth.getSession();
   if (!hasAdminRole(sessionData.session)) { showStatus("Sign in as an administrator before uploading wallpaper photos.", true); input.value = ""; return; }
-  if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type) || file.size > MAX_WALLPAPER_BYTES) { showStatus("Use a JPG, PNG, WebP or GIF no larger than 6 MB.", true); input.value = ""; return; }
+  if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type) || file.size > MAX_ADMIN_ASSET_BYTES) { showStatus("Use a JPG, PNG, WebP or GIF no larger than 6 MB.", true); input.value = ""; return; }
   const form = input.form;
   const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "wallpaper";
   const entry = content.themes[selectedIndex];
@@ -416,6 +435,66 @@ async function uploadThemeWallpaper(event) {
     delete form.dataset.uploading;
     input.value = "";
   }
+}
+
+async function uploadAdminAsset(event) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!authClient) { showStatus("Supabase Storage is unavailable.", true); input.value = ""; return; }
+  const { data: sessionData } = await authClient.auth.getSession();
+  if (!hasAdminRole(sessionData.session)) { showStatus("Sign in as an administrator before uploading files.", true); input.value = ""; return; }
+  if (!ADMIN_ASSET_TYPES.has(file.type) || file.size > MAX_ADMIN_ASSET_BYTES) { showStatus("That file type is not supported, or the file is larger than 6 MB.", true); input.value = ""; return; }
+  const form = input.form;
+  const entry = content[section][selectedIndex];
+  const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "asset";
+  const objectPath = `${section}/${String(entry.id).replace(/[^a-z0-9-]+/gi, "-")}/${Date.now()}-${safeName}`;
+  input.disabled = true;
+  form.dataset.uploading = "true";
+  showStatus("Uploading file...");
+  try {
+    const { error } = await authClient.storage.from(ADMIN_ASSET_BUCKET).upload(objectPath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+    if (error) { showStatus(error.message, true); return; }
+    const { data } = authClient.storage.from(ADMIN_ASSET_BUCKET).getPublicUrl(objectPath);
+    if (!safeUrl(data.publicUrl)) { showStatus("The file uploaded, but its public URL was invalid.", true); return; }
+    const target = input.name === "profileImageUpload" ? "profileImageUrl" : input.name === "mediaUpload" ? "mediaUrl" : "externalUrl";
+    if (form.elements[target]) form.elements[target].value = data.publicUrl;
+    if (section === "filesystem") {
+      if (form.elements.name.value === "New Folder" || !form.elements.name.value) form.elements.name.value = file.name;
+      form.elements.mimeType.value = file.type;
+      form.elements.size.value = formatBytes(file.size);
+      form.elements.nodeType.value = assetNodeType(file.type);
+      if (/new folder/i.test(form.elements.path.value)) form.elements.path.value = `A:\\Archive\\Assets\\${file.name}`;
+    }
+    if (section === "media") {
+      form.elements.originalFilename.value = file.name;
+      form.elements.mimeType.value = file.type;
+      form.elements.provider.value = "supabase";
+      form.elements.processingStatus.value = "ready";
+      form.elements.moderationStatus.value = "approved";
+    }
+    markEditorDirty();
+    showStatus("File uploaded. Save the draft, then Publish NETWORK.");
+  } catch (error) {
+    showStatus(error?.message || "File upload failed.", true);
+  } finally {
+    input.disabled = false;
+    delete form.dataset.uploading;
+    input.value = "";
+  }
+}
+
+function assetNodeType(mimeType) {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function formatBytes(value) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function showWarnings(form, entry) {

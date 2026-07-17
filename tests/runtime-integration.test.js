@@ -61,6 +61,7 @@ test("admin authentication keeps sign in and sign out as explicit actions", asyn
   const source = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
   assert.match(html, /id="admin-sign-out"/);
   assert.match(html, /id="admin-publish"/);
+  assert.match(html, /id="admin-publish" type="button" disabled>Sign in to publish/);
   assert.doesNotMatch(html, /defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase/);
   assert.match(source, /signInWithPassword/);
   assert.match(source, /network_content_snapshots/);

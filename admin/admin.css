@@ -13,6 +13,7 @@ button, a { min-height: 42px; }
 .admin-auth { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .admin-auth input { width: 150px; min-height: 36px; padding: 6px; border: 1px solid #697080; }
 .admin-auth button { min-height: 36px; }
+.admin-auth button:disabled { color: #585858; background: #d7d7d7; border: 1px solid #8a8a8a; cursor: not-allowed; }
 .admin-password-panel { display: flex; align-items: center; justify-content: center; gap: 24px; padding: 18px 16px; color: #fff; background: #303030; border-bottom: 4px solid var(--red); }
 .admin-password-panel[hidden] { display: none; }
 .admin-password-panel p { margin: 4px 0 0; color: #d7d7d7; }

@@ -85,7 +85,9 @@ function renderAuthState(session) {
   const isAdmin = hasAdminRole(session);
   signInButton.hidden = Boolean(session);
   signOutButton.hidden = !session;
-  publishButton.hidden = !isAdmin;
+  publishButton.hidden = false;
+  publishButton.disabled = !isAdmin;
+  publishButton.textContent = isAdmin ? "Publish NETWORK" : "Sign in to publish";
   authForm.elements.email.disabled = Boolean(session);
   authForm.elements.password.disabled = Boolean(session);
   document.getElementById("admin-mode").textContent = session
@@ -157,8 +159,8 @@ publishButton.addEventListener("click", async () => {
   } catch (error) {
     showStatus(error?.message || "Publishing could not be completed.", true);
   } finally {
-    publishButton.disabled = false;
-    publishButton.textContent = "Publish NETWORK";
+    const { data: latestSession } = await authClient.auth.getSession();
+    renderAuthState(latestSession.session);
   }
 });
 

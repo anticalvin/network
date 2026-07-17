@@ -15,11 +15,15 @@ export function mergeManagedThemes(base, entries = []) {
     if (entry.enabled === false) { byId.delete(entry.id); continue; }
     if (!safeColor(entry.color)) continue;
     const previous = byId.get(entry.id) || {};
+    const hasImageField = Object.prototype.hasOwnProperty.call(entry, "imageUrl");
+    const image = hasImageField ? safeImageUrl(entry.imageUrl) : previous.image;
     byId.set(entry.id, {
       ...previous,
       id: entry.id,
       title: String(entry.label || previous.title || entry.id).slice(0, 60),
       color: entry.color,
+      image: image || undefined,
+      mode: ["cover", "contain", "tile"].includes(entry.fitMode) ? entry.fitMode : previous.mode || "cover",
       detail: String(entry.detail || previous.detail || "Published from AWAKEN Admin").slice(0, 160),
       sortOrder: Number(entry.sortOrder ?? previous.sortOrder ?? 100)
     });
@@ -95,6 +99,12 @@ export function managedNetworkSites(entries = []) {
 function safeHttpUrl(value) {
   if (!value) return false;
   try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; }
+}
+
+function safeImageUrl(value) {
+  if (!value) return "";
+  if (/^assets\/[a-z0-9_./-]+$/i.test(value)) return value;
+  return safeHttpUrl(value) ? value : "";
 }
 
 function safeColor(value) {

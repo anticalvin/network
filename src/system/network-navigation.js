@@ -3,6 +3,8 @@ import { mediaProviderEmbed } from "../domain/media.js";
 export const NETWORK_DESTINATIONS = Object.freeze({
   awakenDomains: Object.freeze(["awakencult.com"]),
   awakenHosts: Object.freeze(["anticalvin.github.io"]),
+  approvedToolHosts: Object.freeze(["calvinck.com"]),
+  externalHosts: Object.freeze(["vzn.awakencult.com"]),
   mediaHosts: Object.freeze(["music.apple.com", "embed.music.apple.com", "open.spotify.com", "soundcloud.com", "w.soundcloud.com"]),
   downloadExtensions: Object.freeze(["zip", "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "mp3", "wav", "m4a", "ogg", "png", "jpg", "jpeg", "webp", "gif", "json"])
 });
@@ -39,6 +41,8 @@ export function classifyNetworkUrl(value, options = {}) {
     return classification("download", { ...common, bypass: true, reason: "Downloads remain with the browser download flow." });
   }
   if (base && parsed.origin === base.origin) return classification("same-origin", { ...common, embeddable: true });
+  if (policy.externalHosts?.includes(hostname)) return classification("external", { ...common, embeddable: false, requiresExternalConfirmation: true, reason: "This AWAKEN destination is designed to continue in its own browser tab." });
+  if (policy.approvedToolHosts?.includes(hostname)) return classification("awaken", { ...common, embeddable: true });
   if (isApprovedAwakenHost(hostname, parsed, policy)) return classification("awaken", { ...common, embeddable: true });
 
   const media = officialMediaEmbed(parsed);

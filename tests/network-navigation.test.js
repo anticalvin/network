@@ -12,7 +12,7 @@ test("same-origin AWAKEN pages stay inside the shell", () => {
 });
 
 test("approved AWAKEN subdomains are classified separately", () => {
-  const result = classifyNetworkUrl("https://vzn.awakencult.com/tool", { baseUrl });
+  const result = classifyNetworkUrl("https://joshotis.awakencult.com/", { baseUrl });
   assert.equal(result.kind, "awaken");
   assert.equal(result.embeddable, true);
 });
@@ -32,6 +32,11 @@ test("generic external websites require the controlled warning", () => {
   assert.equal(result.kind, "external");
   assert.equal(result.embeddable, false);
   assert.equal(result.requiresExternalConfirmation, true);
+});
+
+test("VZN deliberately continues externally while approved portfolio tools can embed", () => {
+  assert.equal(classifyNetworkUrl("https://vzn.awakencult.com/").kind, "external");
+  assert.equal(classifyNetworkUrl("https://calvinck.com/").kind, "awaken");
 });
 
 test("invalid and javascript URLs are rejected", () => {

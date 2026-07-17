@@ -1,4 +1,4 @@
-import { defaultContent } from "../content/default-content.js?v=runtime-7";
+import { defaultContent } from "../content/default-content.js?v=runtime-9";
 
 const CACHE_KEY = "awaken.content-cache";
 const OVERRIDE_KEY = "awaken.content-admin-draft";
@@ -60,6 +60,7 @@ function mergeContent(value) {
     themes: Array.isArray(candidate.themes) ? candidate.themes : defaultContent.themes,
     transmissions: Array.isArray(candidate.transmissions) ? candidate.transmissions : defaultContent.transmissions,
     fragments: Array.isArray(candidate.fragments) ? candidate.fragments : defaultContent.fragments,
+    mindPrompts: mergeRecords(defaultContent.mindPrompts, candidate.mindPrompts),
     filesystem: mergeRecords(defaultContent.filesystem, candidate.filesystem),
     networkSites: mergeRecords(defaultContent.networkSites, candidate.networkSites),
     ads: mergeRecords(defaultContent.ads, candidate.ads),

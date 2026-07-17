@@ -23,12 +23,13 @@ export const defaultContent = {
     { id: "apple", label: "Apple Music", detail: "AWAKEN CULT artist catalog.", url: "https://music.apple.com/za/artist/awaken-cult/1448907538", verified: true }
   ],
   themes: [
-    { id: "awaken-red", label: "AWAKEN Red", color: "#da4a44", enabled: true, sortOrder: 1 },
-    { id: "xp-teal", label: "XP Teal", color: "#008080", enabled: true, sortOrder: 2 },
-    { id: "xp-blue", label: "XP Blue", color: "#245edb", enabled: true, sortOrder: 3 },
-    { id: "xp-olive", label: "XP Olive", color: "#6f7f2a", enabled: true, sortOrder: 4 },
-    { id: "xp-silver", label: "XP Silver", color: "#b7bcc8", enabled: true, sortOrder: 5 },
-    { id: "black", label: "Black", color: "#050505", enabled: true, sortOrder: 6 }
+    { id: "awaken-default", label: "AWAKEN Default", color: "#da4a44", imageUrl: "https://i.ibb.co/F4cCLp3t/a3a6a063-4a72-4b8a-b693-b774e7acbf81.webp", fitMode: "cover", enabled: true, sortOrder: 0 },
+    { id: "awaken-red", label: "AWAKEN Red", color: "#da4a44", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 1 },
+    { id: "xp-teal", label: "XP Teal", color: "#008080", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 2 },
+    { id: "xp-blue", label: "XP Blue", color: "#245edb", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 3 },
+    { id: "xp-olive", label: "XP Olive", color: "#6f7f2a", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 4 },
+    { id: "xp-silver", label: "XP Silver", color: "#b7bcc8", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 5 },
+    { id: "black", label: "Black", color: "#050505", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: 6 }
   ],
   transmissions: [
     {
@@ -58,6 +59,13 @@ export const defaultContent = {
   fragments: [
     { id: "catalog-state-of-mind", title: "State Of Mind", body: "EP released 28 June 2022.", sourceType: "apple_music", sourceRef: "1656676894", status: "published" }
   ],
+  mindPrompts: [
+    { id: "mind-memory", title: "Memory check", message: "You have a Memory Card. That means the NETWORK can remember you.", enabled: true, weight: 3 },
+    { id: "mind-assets", title: "Archive hint", message: "The Assets folder has been repaired. Try opening an image and saving it to your Memory Card.", enabled: true, weight: 2 },
+    { id: "mind-weather", title: "Network weather", message: "Signal weather is clear with scattered archive fragments after midnight.", enabled: true, weight: 2 },
+    { id: "mind-shop", title: "Shop status", message: "SHOP.EXE is still coming soon. I checked twice. It looked back once.", enabled: true, weight: 1 },
+    { id: "mind-xp", title: "XP channel", message: "I can open the full MIND channel whenever you want to hear from the NETWORK.", enabled: true, weight: 3 }
+  ],
   filesystem: [
     { id: "universe-folder", name: "NETWORK", path: "A:\\NETWORK", nodeType: "folder", visibility: "public", status: "published" },
     { id: "universe-readme", name: "WELCOME_TO_THE_NETWORK.txt", path: "A:\\NETWORK\\WELCOME_TO_THE_NETWORK.txt", nodeType: "document", visibility: "public", status: "published", content: "You are inside the public edge of AWAKEN NETWORK. Some files are releases. Some are messages. Some are waiting for the right person to open them." },
@@ -81,6 +89,6 @@ export const defaultContent = {
     { id: "missed-call", title: "MISSED NETWORK CALL", copy: "You missed a zero-second call from your own guest session.", enabled: true, type: "dialer", weight: 1, minimumSessionAgeMs: 150000, cooldownMs: 1800000, maximumPerSession: 1, maximumPerDay: 1, actionType: "connect", contentReference: "CALL-AWAKEN / 03:33" }
   ],
   featureFlags: [
-    { id: "runtime", title: "Runtime integrations", adsRuntimeEnabled: true, intrusionEnabled: true, galleryStudioEnabled: true, upgradedMediaPlayerEnabled: true, universeSitesEnabled: true }
+    { id: "runtime", title: "Runtime integrations", adsRuntimeEnabled: true, intrusionEnabled: true, galleryStudioEnabled: true, upgradedMediaPlayerEnabled: true, universeSitesEnabled: true, mindAssistantEnabled: true }
   ]
 };

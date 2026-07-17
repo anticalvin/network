@@ -1,10 +1,10 @@
-import { defaultContent } from "./src/content/default-content.js?v=runtime-7";
-import { iconManifest } from "./src/content/icon-manifest.js";
+import { defaultContent } from "./src/content/default-content.js?v=runtime-9";
+import { iconManifest } from "./src/content/icon-manifest.js?v=runtime-9";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
-import { normalizeMedia } from "./src/domain/media.js?v=runtime-8";
+import { normalizeMedia } from "./src/domain/media.js?v=runtime-9";
 import { selectTransmissions } from "./src/domain/scheduling.js";
-import { ContentRepository } from "./src/data/content-repository.js?v=runtime-7";
+import { ContentRepository } from "./src/data/content-repository.js?v=runtime-9";
 import { brandAssets } from "./src/content/brand-assets.js";
 import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
 import { createSupabaseRestClient } from "./src/data/supabase-client.js";
@@ -17,15 +17,15 @@ import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
 import { advanceIntrusion, cancelIntrusion, createIntrusionState } from "./src/domain/intrusion.js";
 import { getRuntimeConfig, getSessionState, setSessionState } from "./src/system/runtime-state.js";
-import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js";
+import { TEAM_MEMBERS, contributorCreditsMarkup } from "./src/content/contributors.js?v=runtime-9";
 import { atlasSeed } from "./src/content/atlas-seed.js";
 import { atlasGraph, filterPublicAtlasBundle } from "./src/domain/atlas.js";
 import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
-import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-7";
-import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-7";
+import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-9";
+import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-9";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -253,6 +253,8 @@ let adRecords = safeJson(localStorage.getItem("awaken.adRecords")) || {};
 const sessionStartedAt = Date.now();
 let adTimer = 0;
 let intrusionTimer = 0;
+let mindAssistantTimer = 0;
+let lastMindPromptId = "";
 
 const bootloader = document.getElementById("bootloader");
 const osContainer = document.getElementById("os-container");
@@ -345,7 +347,10 @@ function applyManagedContent() {
 
 function runtimeTeamMembers() {
   if (!Array.isArray(managedContent.contributors) || !managedContent.contributors.length) return TEAM_MEMBERS;
-  return managedContent.contributors.filter((person) => person?.isActive !== false && person?.displayName && person?.slug);
+  const managed = new Map(managedContent.contributors.filter((person) => person?.slug).map((person) => [person.slug, person]));
+  const known = TEAM_MEMBERS.map((person) => ({ ...person, ...(managed.get(person.slug) || {}) }));
+  const knownSlugs = new Set(known.map((person) => person.slug));
+  return [...known, ...managedContent.contributors.filter((person) => !knownSlugs.has(person.slug))].filter((person) => person?.isActive !== false && person?.displayName && person?.slug);
 }
 
 function runBoot() {
@@ -387,6 +392,7 @@ function finishBoot() {
   applyPreferences();
   scheduleTransmissions();
   scheduleAds();
+  startMindAssistant();
   const previewAdId = new URLSearchParams(location.search).get("previewAd");
   if (previewAdId && new URLSearchParams(location.search).has("adminPreview")) {
     const previewAd = runtimeAdDefinitions().find((item) => item.id === previewAdId);
@@ -757,7 +763,7 @@ function getEntriesForPath(path) {
   if (p.endsWith("programs")) return includeManaged(APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app })));
   if (p.endsWith("gallery")) return includeManaged(galleryFiles);
   if (p.endsWith("community")) return includeManaged([folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))]);
-  if (p.endsWith("community\\xp")) return includeManaged([fileByName("MIND.exe"), { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }]);
+  if (p.endsWith("community\\xp")) return includeManaged([fileByName("MIND.exe"), { name: "MIND_ASSISTANT.exe", type: "App", size: "resident", modified: "live", app: { action: () => showMindAssistant({ force: true }) } }, { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }]);
   if (p.endsWith("team")) return includeManaged(runtimeTeamMembers().map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person })));
   if (p.endsWith("wallpapers")) {
     return includeManaged([
@@ -1172,11 +1178,17 @@ function openPortal(title, url, detail) {
 function openImage(file) {
   const { content } = createWindow(file.name, { wide: true });
   const media = normalizeMedia({ id: file.path, src: file.src || file.url, sourceUrl: file.sourceUrl, caption: file.caption, credit: file.credit });
-  content.innerHTML = media.missing
-    ? `<div class="empty-state">Image unavailable.</div>`
-    : `<img class="viewer-image" src="${escapeHtml(media.fullSource)}" alt="${escapeHtml(file.name)}" loading="lazy" /><p>${escapeHtml(file.path || media.sourceUrl || "")}</p><button type="button" data-save-image>Save image</button>`;
+  if (media.missing) { content.innerHTML = `<div class="empty-state">Image unavailable.</div>`; return; }
+  const imageSource = media.fullSource.startsWith("assets/") ? new URL(media.fullSource, document.baseURI).href : media.fullSource;
+  content.innerHTML = `<div class="image-viewer-stage"><div class="image-viewer-loading" data-image-state>Loading ${escapeHtml(file.name)}...</div><img class="viewer-image" alt="${escapeHtml(file.name)}" /></div><p>${escapeHtml(file.path || media.sourceUrl || imageSource)}</p><button type="button" data-save-image>Save image</button>`;
   const image = content.querySelector("img");
-  if (image) image.addEventListener("error", () => image.replaceWith(Object.assign(document.createElement("div"), { className: "empty-state", textContent: "Image unavailable." })));
+  const state = content.querySelector("[data-image-state]");
+  image.loading = "eager";
+  image.decoding = "async";
+  image.addEventListener("load", () => { image.hidden = false; state.remove(); }, { once: true });
+  image.addEventListener("error", () => { image.hidden = true; state.textContent = "Image could not be displayed. Its source is still available."; state.className = "empty-state"; }, { once: true });
+  image.hidden = true;
+  image.src = imageSource;
   content.querySelector("[data-save-image]")?.addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: media.id, type: "image", title: file.name, src: media.fullSource }));
 }
 
@@ -1192,9 +1204,11 @@ function openTeamProfile(person) {
         <h2>${escapeHtml(person.displayName)}</h2>
         <p>${escapeHtml(person.roleLabel || "AWAKEN team member.")}</p>
         <div class="empty-state">${escapeHtml(person.biography || "No additional profile details are available.")}</div>
+        ${person.externalUrl ? `<button type="button" data-team-site>Open ${escapeHtml(person.displayName)} site</button>` : ""}
       </div>
     </section>
   `;
+  content.querySelector("[data-team-site]")?.addEventListener("click", () => openNetworkUrl(person.externalUrl, { title: `${person.displayName} site`, source: "team" }));
 }
 
 function saveExplicit(button, item) {
@@ -1346,6 +1360,47 @@ function scheduleAds() {
   window.setTimeout(attempt, 45_000);
 }
 
+function startMindAssistant() {
+  clearTimeout(mindAssistantTimer);
+  if (!managedFeatureEnabled(managedContent, "mindAssistantEnabled", true)) return;
+  const assistant = document.getElementById("mind-assistant");
+  if (!assistant || assistant.dataset.bound === "true") { scheduleMindAssistant(12_000); return; }
+  assistant.dataset.bound = "true";
+  assistant.querySelector("[data-mind-open]").addEventListener("click", () => { assistant.hidden = true; openMind(); scheduleMindAssistant(55_000); });
+  assistant.querySelector("[data-mind-another]").addEventListener("click", () => showMindAssistant({ force: true }));
+  assistant.querySelector("[data-mind-dismiss]").addEventListener("click", () => { assistant.hidden = true; scheduleMindAssistant(45_000); });
+  assistant.querySelector("[data-mind-snooze]").addEventListener("click", () => {
+    sessionStorage.setItem("awaken.mindSnoozedUntil", String(Date.now() + 10 * 60_000));
+    assistant.hidden = true;
+    scheduleMindAssistant(10 * 60_000);
+  });
+  scheduleMindAssistant(12_000);
+}
+
+function scheduleMindAssistant(delay = 50_000) {
+  clearTimeout(mindAssistantTimer);
+  mindAssistantTimer = window.setTimeout(() => showMindAssistant(), delay);
+}
+
+function showMindAssistant({ force = false } = {}) {
+  const assistant = document.getElementById("mind-assistant");
+  if (!assistant || document.hidden || document.querySelector(".gallery-dirty")) { scheduleMindAssistant(30_000); return; }
+  const snoozedUntil = Number(sessionStorage.getItem("awaken.mindSnoozedUntil") || 0);
+  if (!force && snoozedUntil > Date.now()) { scheduleMindAssistant(Math.min(snoozedUntil - Date.now(), 60_000)); return; }
+  const prompts = (managedContent.mindPrompts || defaultContent.mindPrompts || []).filter((item) => item?.enabled !== false && item?.message);
+  if (!prompts.length) return;
+  const weighted = prompts.flatMap((item) => Array.from({ length: Math.max(1, Math.min(10, Number(item.weight) || 1)) }, () => item));
+  const alternatives = weighted.filter((item) => item.id !== lastMindPromptId);
+  const pool = alternatives.length ? alternatives : weighted;
+  const prompt = pool[Math.floor(Math.random() * pool.length)];
+  lastMindPromptId = prompt.id;
+  assistant.querySelector("[data-mind-message]").textContent = prompt.message;
+  assistant.hidden = false;
+  assistant.classList.remove("mind-assistant-arrive");
+  requestAnimationFrame(() => assistant.classList.add("mind-assistant-arrive"));
+  scheduleMindAssistant(55_000 + Math.floor(Math.random() * 30_000));
+}
+
 function runtimeAdDefinitions() {
   const managed = managedContent.ads || [];
   if (!managed.length) return DEFAULT_ADS;
@@ -1447,9 +1502,10 @@ function showTransmission(item) {
   awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_SHOWN, { id: item.id, destinationUrl: item.destinationUrl });
   const layer = document.getElementById("transmission-layer");
   const panel = document.createElement("aside");
-  panel.className = "transmission";
+  const isNoiseAd = /noise/i.test(`${item.id} ${item.publicTitle}`);
+  panel.className = `transmission${isNoiseAd ? " transmission-ad" : ""}`;
   const memoryItem = { id: item.id, type: "transmission", title: item.publicTitle, body: [item.primaryCopy, item.secondaryCopy].filter(Boolean).join("\n\n"), url: item.destinationUrl };
-  panel.innerHTML = `<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Move transmission to Trash">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open + Save</button><button type="button" data-save>Save</button><button type="button" data-trash>Trash</button></div>`;
+  panel.innerHTML = `${isNoiseAd ? `<div class="transmission-sponsor">ADVERTISEMENT / NETWORK PARTNER</div>` : ""}<div class="transmission-head"><strong>${escapeHtml(item.publicTitle)}</strong><button type="button" aria-label="Move transmission to Trash">x</button></div><p>${escapeHtml(item.primaryCopy)}</p>${item.secondaryCopy ? `<small>${escapeHtml(item.secondaryCopy)}</small>` : ""}<div class="transmission-actions"><button type="button" data-open>Open + Save</button><button type="button" data-save>Save</button><button type="button" data-trash>Trash</button></div>`;
   const dismiss = () => {
     memoryCard = commitMemoryCard(setDismissal(memoryCard, item.id, { dismissed: true, at: new Date().toISOString(), scope: item.dismissal }), { quiet: true });
     trashPopup(memoryItem);

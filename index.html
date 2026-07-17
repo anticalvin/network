@@ -38,7 +38,7 @@
   <link rel="icon" href="assets/icons/favicon-96x96.png" type="image/png" sizes="96x96" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="site.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=runtime-8" />
+  <link rel="stylesheet" href="styles.css?v=runtime-9" />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -100,7 +100,7 @@
 
     <nav id="start-menu" class="start-menu" aria-label="Start menu" tabindex="-1" hidden>
       <div class="start-head">
-        <img src="assets/img/smiley-black.png" alt="" />
+        <img src="https://i.ibb.co/gFPrR060/awaken-eye-black.webp" alt="" />
         <div>
           <strong>AWAKEN OS</strong>
           <span>user: visitor</span>
@@ -126,6 +126,14 @@
       </div>
     </footer>
     <div id="transmission-layer" class="transmission-layer" aria-live="polite"></div>
+    <aside id="mind-assistant" class="mind-assistant" aria-live="polite" hidden>
+      <div class="mind-assistant-eye" aria-hidden="true"><img src="https://i.ibb.co/gFPrR060/awaken-eye-black.webp" alt="" /></div>
+      <div class="mind-assistant-bubble">
+        <div class="mind-assistant-head"><strong>MIND</strong><button type="button" data-mind-dismiss aria-label="Dismiss MIND assistant">x</button></div>
+        <p data-mind-message></p>
+        <div class="mind-assistant-actions"><button type="button" data-mind-open>Open MIND</button><button type="button" data-mind-another>Another thought</button><button type="button" data-mind-snooze>Snooze</button></div>
+      </div>
+    </aside>
   </main>
 
   <audio id="audio-snippet" src="assets/audio/snippet.wav" preload="auto"></audio>
@@ -172,6 +180,6 @@
       });
     })();
   </script>
-  <script type="module" src="script.js?v=runtime-8"></script>
+  <script type="module" src="script.js?v=runtime-9"></script>
 </body>
 </html>

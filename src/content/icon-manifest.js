@@ -6,6 +6,7 @@ export const iconManifest = [
   { applicationId: "paint", label: "AWAKEN Paint", imageSource: "assets/img/otis-grade.png", fallbackText: "AP", alt: "AWAKEN Paint", action: "paint", enabled: true, desktop: true, mobile: true, sortOrder: 4 },
   { applicationId: "mind", label: "MIND", imageSource: null, remoteIconUrl: "https://i.ibb.co/gFPrR060/awaken-eye-black.webp", fallbackText: "AI", alt: "MIND", action: "mind", enabled: true, desktop: true, mobile: true, sortOrder: 5 },
   { applicationId: "community", label: "Community", imageSource: "assets/img/hated-tyla-sabrina.webp", fallbackText: "CM", alt: "Community", action: "community", enabled: true, desktop: true, mobile: true, sortOrder: 5 },
+  { applicationId: "live", label: "LIVE INTERNET", imageSource: "assets/icons/web-app-manifest-192x192.png", fallbackText: "IN", alt: "LIVE INTERNET", action: "live", enabled: true, desktop: true, mobile: true, sortOrder: 6 },
   { applicationId: "shop", label: "Shop", imageSource: null, fallbackText: "$", alt: "Shop", action: "shop", enabled: true, desktop: true, mobile: true, sortOrder: 6, badge: "BUILD" },
   { applicationId: "terminal", label: "Terminal", imageSource: null, fallbackText: ">_", alt: "Terminal", action: "terminal", enabled: true, desktop: true, mobile: true, sortOrder: 7 },
   { applicationId: "settings", label: "Settings", imageSource: null, fallbackText: "ST", alt: "Settings", action: "settings", enabled: true, desktop: true, mobile: true, sortOrder: 8 },

@@ -13,6 +13,16 @@ test("published admin links, themes, icons, and flags safely override runtime co
   assert.equal(managedFeatureEnabled({ featureFlags: [{ id: "runtime", adsRuntimeEnabled: false }] }, "adsRuntimeEnabled", true), false);
 });
 
+test("published wallpaper URLs and the AWAKEN default theme survive runtime merging", () => {
+  const themes = mergeManagedThemes(
+    [{ id: "awaken-default", title: "Default", color: "#da4a44", image: "assets/img/old.webp", mode: "cover" }],
+    [{ id: "awaken-default", label: "My Default", color: "#008080", imageUrl: "https://example.com/wallpaper.jpg", fitMode: "contain", enabled: true }]
+  );
+  assert.equal(themes[0].title, "My Default");
+  assert.equal(themes[0].image, "https://example.com/wallpaper.jpg");
+  assert.equal(themes[0].mode, "contain");
+});
+
 test("published public files and NETWORK sites become safe runtime records", () => {
   const files = managedFilesystemEntries([
     { id: "note", name: "NOTE.txt", path: "A:\\NETWORK\\NOTE.txt", nodeType: "document", visibility: "public", status: "published", content: "hello" },

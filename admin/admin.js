@@ -1,9 +1,9 @@
-import { defaultContent } from "../src/content/default-content.js?v=runtime-7";
-import { ContentRepository } from "../src/data/content-repository.js?v=runtime-7";
-import { safeUrl } from "../src/domain/media.js";
+import { defaultContent } from "../src/content/default-content.js?v=runtime-9";
+import { ContentRepository } from "../src/data/content-repository.js?v=runtime-9";
+import { safeUrl } from "../src/domain/media.js?v=runtime-9";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
-import { TEAM_MEMBERS } from "../src/content/contributors.js";
-import { iconManifest } from "../src/content/icon-manifest.js";
+import { TEAM_MEMBERS } from "../src/content/contributors.js?v=runtime-9";
+import { iconManifest } from "../src/content/icon-manifest.js?v=runtime-9";
 import { atlasSeed } from "../src/content/atlas-seed.js";
 import { ATLAS_ENTITY_TYPES, ATLAS_PUBLICATION_STATES, ATLAS_VERIFICATION_STATES, isAtlasEntityPublic, isAtlasRelationshipPublic } from "../src/domain/atlas.js";
 import { getRuntimeConfig } from "../src/system/runtime-state.js";
@@ -19,6 +19,8 @@ const initialContent = await repository.getPublicContent();
 let content = initialContent.content;
 let section = "transmissions";
 let selectedIndex = null;
+const ADMIN_ASSET_BUCKET = "awaken-admin-assets";
+const MAX_WALLPAPER_BYTES = 6 * 1024 * 1024;
 
 const schemas = {
   transmissions: [
@@ -30,14 +32,15 @@ const schemas = {
     ["sourceRef", "Source reference", "url"]
   ],
   links: [["label", "Label", "text", true], ["detail", "Description", "textarea", true], ["url", "URL", "url", true], ["verified", "Verified", "checkbox"]],
-  themes: [["label", "Label", "text", true], ["color", "Color", "color", true], ["enabled", "Enabled", "checkbox"], ["sortOrder", "Sort order", "number"]],
+  themes: [["label", "Label", "text", true], ["color", "Fallback color", "color", true], ["imageUrl", "Wallpaper image URL", "url"], ["imageUpload", "Upload wallpaper photo", "file"], ["fitMode", "Image fit", "select", true, ["cover", "contain", "tile"]], ["enabled", "Enabled", "checkbox"], ["sortOrder", "Sort order", "number"]],
   fragments: [["title", "Title", "text", true], ["body", "Text", "textarea", true], ["sourceType", "Source type", "text", true], ["sourceRef", "Source record", "text", true], ["status", "Status", "select", true, ["draft", "published", "archived"]]],
+  mindPrompts: [["title", "Internal title", "text", true], ["message", "MIND message", "textarea", true], ["enabled", "Enabled", "checkbox"], ["weight", "Frequency weight", "number"]],
   filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["content", "Text / file content", "textarea"], ["detail", "Description", "textarea"], ["externalUrl", "Media or destination URL", "url"], ["mediaId", "Media library ID", "text"], ["mimeType", "MIME type", "text"], ["size", "Display size", "text"], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
   networkSites: [["title", "Site title", "text", true], ["slug", "Address slug", "text", true], ["tagline", "Tagline", "textarea", true], ["body", "Page content", "textarea", true], ["accent", "Accent", "color", true], ["status", "Status", "select", true, ["draft", "published", "archived"]], ["sortOrder", "Sort order", "number"]],
   media: [["originalFilename", "Filename", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "External URL", "url"], ["mimeType", "MIME type", "text", true], ["caption", "Caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
   campaigns: [["slug", "Slug", "text", true], ["title", "Title", "text", true], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]], ["weight", "Weight", "number"], ["startsAt", "Starts", "datetime-local"], ["endsAt", "Ends", "datetime-local"]],
   ads: [["title", "Title", "text", true], ["copy", "Popup copy", "textarea", true], ["enabled", "Enabled", "checkbox"], ["type", "Type", "select", true, ["security", "messenger", "installer", "memory", "dialer"]], ["weight", "Weight", "number"], ["minimumSessionAgeMs", "Minimum session age (ms)", "number"], ["cooldownMs", "Cooldown (ms)", "number"], ["maximumPerSession", "Maximum per session", "number"], ["maximumPerDay", "Maximum per day", "number"], ["actionType", "Action", "select", true, ["recover", "message", "connect"]], ["contentReference", "Content reference", "text"], ["startAt", "Campaign starts", "datetime-local"], ["endAt", "Campaign ends", "datetime-local"]],
-  featureFlags: [["title", "Configuration", "text", true], ["adsRuntimeEnabled", "Ads runtime enabled", "checkbox"], ["intrusionEnabled", "Intrusion enabled", "checkbox"], ["galleryStudioEnabled", "AWAKEN Paint enabled", "checkbox"], ["upgradedMediaPlayerEnabled", "Upgraded Media Player enabled", "checkbox"], ["universeSitesEnabled", "NETWORK universe sites enabled", "checkbox"]],
+  featureFlags: [["title", "Configuration", "text", true], ["adsRuntimeEnabled", "Ads runtime enabled", "checkbox"], ["intrusionEnabled", "Intrusion enabled", "checkbox"], ["galleryStudioEnabled", "AWAKEN Paint enabled", "checkbox"], ["upgradedMediaPlayerEnabled", "Upgraded Media Player enabled", "checkbox"], ["universeSitesEnabled", "NETWORK universe sites enabled", "checkbox"], ["mindAssistantEnabled", "MIND desktop assistant enabled", "checkbox"]],
   gallerySubmissions: [["title", "Title", "text", true], ["creator", "Creator", "text", true], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]], ["atlasEntityId", "Atlas entity", "text"], ["createdAt", "Submitted", "datetime-local"]],
   mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]],
   contributors: [["displayName", "Display name", "text", true], ["slug", "Slug", "text", true], ["avatarUrl", "Avatar URL", "url"], ["roleLabel", "Role label", "text"], ["biography", "Biography", "textarea"], ["externalUrl", "External URL", "url"], ["discordUserId", "Discord user ID", "text"], ["isTeam", "Team member", "checkbox"], ["isActive", "Active", "checkbox"]],
@@ -48,11 +51,13 @@ const schemas = {
 };
 
 content.filesystem ||= [{ id: "local-community-xp", name: "XP", path: "A:\\Community\\XP", nodeType: "folder", visibility: "public", status: "published" }];
+content.themes = ensureEditableDefaultTheme(content.themes);
+content.mindPrompts ||= structuredClone(defaultContent.mindPrompts);
 content.networkSites ||= structuredClone(defaultContent.networkSites);
 content.media ||= [{ id: "local-wallpaper-default", originalFilename: "awaken-default.webp", provider: "imgbb", externalUrl: "https://i.ibb.co/F4cCLp3t/a3a6a063-4a72-4b8a-b693-b774e7acbf81.webp", mimeType: "image/webp", processingStatus: "ready", moderationStatus: "approved" }];
 content.campaigns ||= [{ id: "local-call-awaken", slug: "call-awaken", title: "CALL-AWAKEN", status: "draft", weight: 1 }];
 content.mindBridge ||= [{ id: "xp", displayName: "XP", discordGuildId: "946069318473502770", discordChannelId: "1525921490414080031", connectionStatus: "Server-managed", publicVisible: true }];
-content.contributors ||= TEAM_MEMBERS.map((person) => ({ ...person, isTeam: true, isActive: true }));
+content.contributors = ensureContributorDefaults(content.contributors);
 content.atlasEntities ||= structuredClone(atlasSeed.entities);
 content.atlasRelationships ||= structuredClone(atlasSeed.relationships);
 content.atlasSources ||= structuredClone(atlasSeed.sources);
@@ -228,7 +233,11 @@ function createEntry() {
         ? { id, predicate: "related_to", verificationState: "needs_review", confidence: 0.5, publicVisible: false }
         : section === "atlasSources"
           ? { id, sourceType: "internal", confidence: 0.5, publicSafe: false }
-          : { id, status: "draft" };
+          : section === "themes"
+            ? { id, label: "New wallpaper", color: "#da4a44", imageUrl: null, fitMode: "cover", enabled: true, sortOrder: (content.themes || []).length }
+            : section === "mindPrompts"
+              ? { id, title: "New MIND message", message: "", enabled: true, weight: 1 }
+              : { id, status: "draft" };
   content[section] = [base, ...(content[section] || [])];
   selectedIndex = 0;
   render();
@@ -238,10 +247,13 @@ function renderEditor() {
   const form = document.getElementById("editor-form");
   if (selectedIndex === null) { form.innerHTML = `<div class="editor-empty">Select an entry or create a new one.</div>`; return; }
   const entry = content[section][selectedIndex];
-  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2><div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}<button type="button" data-duplicate>Duplicate</button><button class="danger" type="button" data-delete>Delete</button><span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
+  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2>${section === "themes" ? themePreviewMarkup(entry) : ""}<div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}<button type="button" data-duplicate>Duplicate</button>${section === "themes" && entry.id === "awaken-default" ? "" : `<button class="danger" type="button" data-delete>Delete</button>`}<span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
   form.addEventListener("submit", saveForm);
   form.querySelector("[data-duplicate]").addEventListener("click", duplicateEntry);
-  form.querySelector("[data-delete]").addEventListener("click", deleteEntry);
+  form.querySelector("[data-delete]")?.addEventListener("click", deleteEntry);
+  form.querySelector("[data-theme-upload]")?.addEventListener("change", uploadThemeWallpaper);
+  form.querySelector("[name='imageUrl']")?.addEventListener("input", updateThemePreview);
+  form.querySelector("[name='color']")?.addEventListener("input", updateThemePreview);
   form.querySelector("[data-preview-ad]")?.addEventListener("click", () => window.open(`./index.html?skipBoot&adminPreview&previewAd=${encodeURIComponent(entry.id)}`, "_blank", "noopener,noreferrer"));
   form.addEventListener("input", markEditorDirty);
   form.addEventListener("change", markEditorDirty);
@@ -283,6 +295,7 @@ function captureEditor(form) {
   const entry = { ...content[section][selectedIndex] };
   let invalidJson = false;
   schemas[section].forEach(([key, , type]) => {
+    if (type === "file") return;
     if (type === "checkbox") entry[key] = form.elements[key].checked;
     else if (type === "number") entry[key] = Number(data.get(key) || 0);
     else if (type === "csv") entry[key] = String(data.get(key) || "").split(",").map((item) => item.trim()).filter(Boolean);
@@ -336,8 +349,71 @@ function fieldMarkup([key, label, type, required, options], entry) {
   if (type === "csv") return `<label class="field">${label}<input name="${key}" type="text" value="${escapeHtml((Array.isArray(value) ? value : [value]).filter(Boolean).join(", "))}" /></label>`;
   if (type === "select") return `<label class="field">${label}<select name="${key}" ${required ? "required" : ""}>${options.map((option) => `<option value="${option}" ${option === value ? "selected" : ""}>${titleCase(option)}</option>`).join("")}</select></label>`;
   if (type === "checkbox") return `<label class="field"><span>${label}</span><input name="${key}" type="checkbox" ${value ? "checked" : ""} /></label>`;
+  if (type === "file") return `<label class="field field-wide">${label}<input name="${key}" type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-theme-upload /><small>JPG, PNG, WebP or GIF up to 6 MB. Sign in as admin before uploading.</small></label>`;
   const displayValue = type === "datetime-local" && value ? String(value).slice(0, 16) : value;
   return `<label class="field">${label}<input name="${key}" type="${type}" value="${escapeHtml(String(displayValue))}" ${required ? "required" : ""} /></label>`;
+}
+
+function ensureEditableDefaultTheme(themes = []) {
+  const entries = Array.isArray(themes) ? structuredClone(themes) : [];
+  if (!entries.some((theme) => theme?.id === "awaken-default")) entries.unshift(structuredClone(defaultContent.themes.find((theme) => theme.id === "awaken-default")));
+  return entries;
+}
+
+function ensureContributorDefaults(contributors = []) {
+  const entries = Array.isArray(contributors) ? contributors : [];
+  const overrides = new Map(entries.filter((person) => person?.slug || person?.id).map((person) => [person.slug || person.id, person]));
+  const known = TEAM_MEMBERS.map((person) => ({ ...person, ...(overrides.get(person.slug) || {}), isTeam: overrides.get(person.slug)?.isTeam !== false, isActive: overrides.get(person.slug)?.isActive !== false }));
+  const knownIds = new Set(known.flatMap((person) => [person.id, person.slug]));
+  return [...known, ...entries.filter((person) => !knownIds.has(person.id) && !knownIds.has(person.slug))];
+}
+
+function themePreviewMarkup(entry) {
+  const imageUrl = safeUrl(entry.imageUrl) || "";
+  return `<section class="theme-preview" data-theme-preview style="--preview-color:${escapeHtml(entry.color || "#da4a44")};--preview-image:${imageUrl ? `url('${escapeHtml(imageUrl)}')` : "none"}"><strong>${entry.id === "awaken-default" ? "AWAKEN DEFAULT" : "WALLPAPER PREVIEW"}</strong><span>${imageUrl ? "Photo wallpaper" : "Solid color wallpaper"}</span></section>`;
+}
+
+function updateThemePreview(event) {
+  const form = event.currentTarget.form;
+  const preview = form?.querySelector("[data-theme-preview]");
+  if (!preview) return;
+  const imageUrl = safeUrl(form.elements.imageUrl.value.trim()) || "";
+  preview.style.setProperty("--preview-color", form.elements.color.value || "#da4a44");
+  preview.style.setProperty("--preview-image", imageUrl ? `url("${imageUrl.replace(/["\\]/g, "")}")` : "none");
+  preview.querySelector("span").textContent = imageUrl ? "Photo wallpaper" : "Solid color wallpaper";
+}
+
+async function uploadThemeWallpaper(event) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!authClient) { showStatus("Supabase Storage is unavailable.", true); input.value = ""; return; }
+  const { data: sessionData } = await authClient.auth.getSession();
+  if (!hasAdminRole(sessionData.session)) { showStatus("Sign in as an administrator before uploading wallpaper photos.", true); input.value = ""; return; }
+  if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type) || file.size > MAX_WALLPAPER_BYTES) { showStatus("Use a JPG, PNG, WebP or GIF no larger than 6 MB.", true); input.value = ""; return; }
+  const form = input.form;
+  const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "wallpaper";
+  const entry = content.themes[selectedIndex];
+  const objectPath = `wallpapers/${String(entry.id).replace(/[^a-z0-9-]+/gi, "-")}/${Date.now()}-${safeName}`;
+  input.disabled = true;
+  form.dataset.uploading = "true";
+  showStatus("Uploading wallpaper photo...");
+  try {
+    const { error } = await authClient.storage.from(ADMIN_ASSET_BUCKET).upload(objectPath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+    if (error) { showStatus(error.message, true); return; }
+    const { data } = authClient.storage.from(ADMIN_ASSET_BUCKET).getPublicUrl(objectPath);
+    if (!safeUrl(data.publicUrl)) { showStatus("The wallpaper uploaded, but its public URL was invalid.", true); return; }
+    form.elements.imageUrl.value = data.publicUrl;
+    updateThemePreview({ currentTarget: form.elements.imageUrl });
+    markEditorDirty();
+    showStatus("Wallpaper uploaded. Save the draft, then Publish NETWORK.");
+  } catch (error) {
+    showStatus(error?.message || "Wallpaper upload failed.", true);
+  } finally {
+    input.disabled = false;
+    delete form.dataset.uploading;
+    input.value = "";
+  }
 }
 
 function showWarnings(form, entry) {

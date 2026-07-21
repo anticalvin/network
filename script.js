@@ -1,17 +1,17 @@
-import { defaultContent } from "./src/content/default-content.js?v=runtime-12";
+import { defaultContent } from "./src/content/default-content.js?v=runtime-13";
 import { iconManifest } from "./src/content/icon-manifest.js?v=runtime-9";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
 import { normalizeMedia } from "./src/domain/media.js?v=runtime-9";
 import { selectTransmissions } from "./src/domain/scheduling.js";
-import { ContentRepository } from "./src/data/content-repository.js?v=runtime-12";
+import { ContentRepository } from "./src/data/content-repository.js?v=runtime-13";
 import { brandAssets } from "./src/content/brand-assets.js";
 import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
 import { createSupabaseRestClient } from "./src/data/supabase-client.js";
 import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
-import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-12";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-13";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
@@ -24,8 +24,8 @@ import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
-import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-12";
-import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-12";
+import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-13";
+import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes, normalizeManagedImageUrl } from "./src/system/managed-content.js?v=runtime-13";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -249,7 +249,7 @@ let localGalleryFiles = [];
 let sharedGalleryFiles = [];
 let managedFiles = [];
 let networkSites = [];
-let adRecords = safeJson(localStorage.getItem("awaken.adRecords")) || {};
+let adRecords = safeJson(sessionStorage.getItem("awaken.adRecords")) || {};
 const sessionStartedAt = Date.now();
 let adTimer = 0;
 let intrusionTimer = 0;
@@ -368,10 +368,15 @@ function applyManagedInterface() {
   document.querySelector(".start-head span").textContent = `user: ${ui.userLabel}`;
   document.getElementById("start-search").placeholder = ui.startPlaceholder;
   document.querySelector("[data-start-label]").textContent = ui.startButtonLabel;
+  const profileImageUrl = normalizeManagedImageUrl(ui.profileImageUrl);
   const profileImages = document.querySelectorAll("[data-profile-image]");
-  if (validManagedImageUrl(ui.profileImageUrl)) profileImages.forEach((image) => { image.src = ui.profileImageUrl; });
+  if (profileImageUrl) profileImages.forEach((image) => { image.src = profileImageUrl; });
   const userIcon = document.querySelector("[data-user-icon]");
-  if (userIcon && validManagedImageUrl(ui.userIconUrl)) userIcon.src = ui.userIconUrl;
+  const userIconUrl = normalizeManagedImageUrl(ui.userIconUrl);
+  if (userIcon && userIconUrl) {
+    userIcon.src = userIconUrl;
+    userIcon.classList.add("custom-user-icon");
+  }
 }
 
 function publishEntryContent(frame) {
@@ -388,7 +393,7 @@ function runtimeTeamMembers() {
 }
 
 function runBoot() {
-  const skipBoot = localStorage.getItem("awakenBooted") === "true";
+  const skipBoot = sessionStorage.getItem("awakenBooted") === "true";
   const entryComplete = sessionStorage.getItem("awaken.entrySequenceComplete") === "true";
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const debugSkip = new URLSearchParams(location.search).has("skipBoot");
@@ -415,7 +420,7 @@ function runBoot() {
 function finishBoot() {
   if (bootFinished) return;
   bootFinished = true;
-  localStorage.setItem("awakenBooted", "true");
+  sessionStorage.setItem("awakenBooted", "true");
   applySavedWallpaper();
   bootloader.style.display = "none";
   osContainer.style.display = "block";
@@ -472,12 +477,15 @@ function iconButton(app, manifest = {}) {
   button.type = "button";
   const source = iconSource(manifest);
   const image = source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(manifest.alt || "")}" loading="lazy" />` : "";
-  button.innerHTML = `<span class="desktop-glyph">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
+  button.innerHTML = `<span class="desktop-glyph${source ? " has-image" : ""}">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
   const img = button.querySelector("img");
   if (img) img.addEventListener("error", () => img.remove());
   button.addEventListener("click", () => {
-    if (manifest.destinationUrl) openNetworkUrl(manifest.destinationUrl, { title: manifest.label || app.title, source: "desktop-icon" });
-    else app.action();
+    if (!manifest.destinationUrl || manifest.destinationUrl === source) {
+      app.action();
+      return;
+    }
+    openNetworkUrl(manifest.destinationUrl, { title: manifest.label || app.title, source: "desktop-icon" });
   });
   button.addEventListener("contextmenu", (event) => showContextMenu(event, "icon", app));
   return button;
@@ -491,7 +499,7 @@ function bindStartMenu() {
     openTerminal();
   });
   document.querySelector("[data-action='reboot']").addEventListener("click", () => {
-    localStorage.removeItem("awakenBooted");
+    sessionStorage.removeItem("awakenBooted");
     location.reload();
   });
   renderStartList("");
@@ -1022,7 +1030,7 @@ async function registerGalleryFile(record, { shared = false, imageBlob } = {}) {
 }
 
 function loadLocalGalleryFiles() {
-  const records = safeJson(localStorage.getItem("awaken.gallery.projects.v1")) || [];
+  const records = safeJson(sessionStorage.getItem("awaken.gallery.projects.v1")) || [];
   return records.flatMap((record) => [
     { ...record, type: "Gallery Image", src: record.image },
     { ...record, id: `${record.id}-project`, name: record.name.replace(/\.png$/i, ".awakenproj.json"), type: "Gallery Project", path: record.path.replace(/\.png$/i, ".awakenproj.json") }
@@ -1421,7 +1429,7 @@ function scheduleAds() {
     if (document.hidden) return;
     const activeElement = document.activeElement;
     const blocked = Boolean(document.querySelector(".gallery-dirty") || activeElement?.matches("input, textarea, [contenteditable='true']") || document.querySelector(".admin-shell, [data-uploading='true']"));
-    const ad = selectWeightedAd(runtimeAdDefinitions(), { now: Date.now(), sessionStartedAt, context: "desktop", records: adRecords, blocked, hidden: document.hidden, openCount: document.querySelectorAll(".window[data-ad-id]").length, maximumOpen: 2, disabled: localStorage.getItem("awaken.adsDisabled") === "true" });
+    const ad = selectWeightedAd(runtimeAdDefinitions(), { now: Date.now(), sessionStartedAt, context: "desktop", records: adRecords, blocked, hidden: document.hidden, openCount: document.querySelectorAll(".window[data-ad-id]").length, maximumOpen: 2, disabled: sessionStorage.getItem("awaken.adsDisabled") === "true" });
     if (ad) showManagedAd(ad);
   };
   adTimer = window.setInterval(attempt, 30_000);
@@ -1519,7 +1527,7 @@ async function showManagedAd(ad, preview = false) {
   win.addEventListener("awaken:window-close", () => awakenBus.emit(AWAKEN_EVENTS.ADS_CLOSE, { id: ad.id }), { once: true });
   if (!preview) {
     adRecords = recordAdDisplay(adRecords, ad.id);
-    localStorage.setItem("awaken.adRecords", JSON.stringify(adRecords));
+    sessionStorage.setItem("awaken.adRecords", JSON.stringify(adRecords));
   }
   awakenBus.emit(AWAKEN_EVENTS.ADS_SPAWN, { id: ad.id, preview });
 }
@@ -1623,11 +1631,11 @@ function openSettings() {
     <div class="settings-sections">
       <section><h2>Appearance</h2><div class="wallpaper-grid">
         ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.id}" aria-pressed="${String(selectedWallpaper === wallpaper.id)}"><span style="--swatch:${wallpaper.color};--swatch-image:${wallpaper.image ? `url('${wallpaper.image}')` : "none"}"></span>${wallpaper.title}</button>`).join("")}
-      </div><div class="settings-row"><button type="button" data-default-wallpaper>Restore AWAKEN Default</button><label><input type="checkbox" data-reduced-motion ${localStorage.getItem("awaken.reducedMotion") === "true" ? "checked" : ""}> Reduced motion</label><label><input type="checkbox" data-sound ${localStorage.getItem("awaken.sound") !== "false" ? "checked" : ""}> System sounds</label></div></section>
-      <section><h2>Desktop</h2><div class="settings-row"><label><input type="checkbox" data-show-icons ${localStorage.getItem("awaken.showIcons") !== "false" ? "checked" : ""}> Show desktop icons</label><button type="button" data-reset-icons>Restore icon arrangement</button><button type="button" data-reset-boot>Show boot next visit</button></div></section>
+      </div><div class="settings-row"><button type="button" data-default-wallpaper>Restore AWAKEN Default</button><label><input type="checkbox" data-reduced-motion ${sessionStorage.getItem("awaken.reducedMotion") === "true" ? "checked" : ""}> Reduced motion</label><label><input type="checkbox" data-sound ${sessionStorage.getItem("awaken.sound") !== "false" ? "checked" : ""}> System sounds</label></div></section>
+      <section><h2>Desktop</h2><div class="settings-row"><label><input type="checkbox" data-show-icons ${sessionStorage.getItem("awaken.showIcons") !== "false" ? "checked" : ""}> Show desktop icons</label><button type="button" data-reset-icons>Refresh icon arrangement</button><button type="button" data-reset-boot>Show boot next visit</button></div></section>
       <section><h2>System</h2><dl class="system-info">${Object.entries(info).map(([key, value]) => `<div><dt>${titleCase(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join("")}</dl></section>
       <section><h2>Storage</h2><p>${memoryCard.items.length} saved Memory Card item${memoryCard.items.length === 1 ? "" : "s"}.</p><div class="settings-row"><button type="button" data-clear-preferences>Clear local preferences</button><button type="button" data-clear-memory>Clear Memory Card</button></div></section>
-      <section><h2>Runtime</h2><div class="settings-row"><label><input type="checkbox" data-ads-enabled ${localStorage.getItem("awaken.adsDisabled") !== "true" ? "checked" : ""}> Allow occasional NETWORK notices</label></div></section>
+      <section><h2>Runtime</h2><div class="settings-row"><label><input type="checkbox" data-ads-enabled ${sessionStorage.getItem("awaken.adsDisabled") !== "true" ? "checked" : ""}> Allow occasional NETWORK notices</label></div></section>
       <section><h2>About</h2><p>AWAKEN NETWORK OS v4.2 connects the AWAKEN archive, community, music, tools, and saved references.</p><div class="settings-row"><button type="button" data-about-url="${LINKS.website}">Website</button><button type="button" data-about-url="${LINKS.youtube}">YouTube</button><button type="button" data-about-url="${LINKS.spotify}">Spotify</button></div></section>
     </div>
   `;
@@ -1638,15 +1646,16 @@ function openSettings() {
     });
   });
   content.querySelector("[data-default-wallpaper]").addEventListener("click", () => setWallpaper(WALLPAPERS[0]));
-  content.querySelector("[data-reduced-motion]").addEventListener("change", (event) => { localStorage.setItem("awaken.reducedMotion", String(event.target.checked)); applyPreferences(); });
-  content.querySelector("[data-sound]").addEventListener("change", (event) => localStorage.setItem("awaken.sound", String(event.target.checked)));
-  content.querySelector("[data-show-icons]").addEventListener("change", (event) => { localStorage.setItem("awaken.showIcons", String(event.target.checked)); applyPreferences(); });
-  content.querySelector("[data-ads-enabled]").addEventListener("change", (event) => { localStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); if (event.target.checked) scheduleAds(); });
-  content.querySelector("[data-reset-icons]").addEventListener("click", () => { localStorage.removeItem("awaken.iconOverrides"); buildDesktop(); });
-  content.querySelector("[data-reset-boot]").addEventListener("click", () => localStorage.removeItem("awakenBooted"));
+  content.querySelector("[data-reduced-motion]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.reducedMotion", String(event.target.checked)); applyPreferences(); });
+  content.querySelector("[data-sound]").addEventListener("change", (event) => sessionStorage.setItem("awaken.sound", String(event.target.checked)));
+  content.querySelector("[data-show-icons]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.showIcons", String(event.target.checked)); applyPreferences(); });
+  content.querySelector("[data-ads-enabled]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); if (event.target.checked) scheduleAds(); });
+  content.querySelector("[data-reset-icons]").addEventListener("click", buildDesktop);
+  content.querySelector("[data-reset-boot]").addEventListener("click", () => sessionStorage.removeItem("awakenBooted"));
   content.querySelector("[data-clear-preferences]").addEventListener("click", () => {
     if (!confirm("Clear local AWAKEN preferences?")) return;
-    ["awakenWallpaper", "awaken.reducedMotion", "awaken.sound", "awaken.showIcons", "awaken.iconOverrides"].forEach((key) => localStorage.removeItem(key));
+    localStorage.removeItem("awakenWallpaper");
+    ["awaken.reducedMotion", "awaken.sound", "awaken.showIcons"].forEach((key) => sessionStorage.removeItem(key));
     applySavedWallpaper();
     applyPreferences();
   });
@@ -1677,8 +1686,8 @@ function applySavedWallpaper() {
 }
 
 function applyPreferences() {
-  document.documentElement.dataset.reducedMotion = String(localStorage.getItem("awaken.reducedMotion") === "true");
-  document.getElementById("desktop-icons").hidden = localStorage.getItem("awaken.showIcons") === "false";
+  document.documentElement.dataset.reducedMotion = String(sessionStorage.getItem("awaken.reducedMotion") === "true");
+  document.getElementById("desktop-icons").hidden = sessionStorage.getItem("awaken.showIcons") === "false";
 }
 
 function storageAvailable() {
@@ -1827,8 +1836,7 @@ function searchAll(term) {
 }
 
 function iconSource(manifest) {
-  const overrides = safeJson(localStorage.getItem("awaken.iconOverrides") || "{}") || {};
-  const remote = manifest.remoteIconUrl || overrides[manifest.applicationId];
+  const remote = manifest.remoteIconUrl;
   if (remote && validRemoteImageUrl(remote)) return remote;
   return manifest.imageSource || "";
 }

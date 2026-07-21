@@ -1,4 +1,4 @@
-import { defaultContent } from "../content/default-content.js?v=runtime-12";
+import { defaultContent } from "../content/default-content.js?v=runtime-13";
 
 const CACHE_KEY = "awaken.content-cache";
 const OVERRIDE_KEY = "awaken.content-admin-draft";
@@ -18,7 +18,7 @@ export class ContentRepository {
     const request = this.remoteRequest();
     if (!request) return { content: local, source: "bundled" };
     try {
-      const response = await this.fetcher(request.url, { headers: request.headers, signal: AbortSignal.timeout(2500) });
+      const response = await this.fetcher(request.url, { headers: request.headers, cache: "no-store", signal: AbortSignal.timeout(2500) });
       if (!response.ok) throw new Error(`Content request failed: ${response.status}`);
       const payload = await response.json();
       const remote = mergeContent(this.endpoint ? payload : payload?.[0]?.payload);
@@ -36,6 +36,11 @@ export class ContentRepository {
   }
 
   clearLocalDraft() { this.storage.removeItem(OVERRIDE_KEY); }
+  clearPublishedState() {
+    this.storage.removeItem(OVERRIDE_KEY);
+    this.storage.removeItem(CACHE_KEY);
+    this.storage.removeItem("awaken.iconOverrides");
+  }
   read(key) { try { return JSON.parse(this.storage.getItem(key)); } catch { return null; } }
 
   remoteRequest() {

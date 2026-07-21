@@ -405,6 +405,19 @@ button {
   object-fit: cover;
 }
 
+.desktop-glyph.has-image {
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.desktop-glyph.has-image img {
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
 .desktop-glyph img + b {
   display: none;
 }
@@ -530,6 +543,13 @@ button {
   background: #245edb;
   border-radius: 3px;
   filter: brightness(0) invert(1);
+}
+
+.start-head img.custom-user-icon {
+  padding: 2px;
+  background: #fff;
+  object-fit: cover;
+  filter: none;
 }
 
 .start-head span {

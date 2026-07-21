@@ -193,8 +193,8 @@ export function renderGalleryStudio(container, { initialFile = null, onSave = ()
     if (shared && imageBlob.size > 3_145_728) { status("Shared Gallery images must be 3 MB or smaller. Resize the canvas and try again."); return; }
     const record = { id: crypto.randomUUID?.() || `gallery-${Date.now()}`, name: `${title}.png`, type: "Image", path: `A:\\Gallery\\${title}.png`, image, project, localOnly: true, modified: new Date().toISOString() };
     try {
-      const works = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-      localStorage.setItem(STORE_KEY, JSON.stringify([record, ...works].slice(0, 4)));
+      const works = JSON.parse(sessionStorage.getItem(STORE_KEY) || "[]");
+      sessionStorage.setItem(STORE_KEY, JSON.stringify([record, ...works].slice(0, 4)));
       const result = await onSave(record, { shared, imageBlob });
       setDirty(false);
       status(shared ? (result?.submitted ? `Submitted ${record.path} to the shared Gallery for review.` : `Saved locally. Shared submission failed: ${result?.reason || "service unavailable"}`) : `Saved ${record.path}`);

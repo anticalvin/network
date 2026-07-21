@@ -56,3 +56,20 @@ test("new bundled managed sections merge safely with an older live snapshot", as
   assert.equal(result.content.interfaceText[0].biosCopyright, "Copyright (C) 2016-2026 AWAKEN ENTERPRISE.");
   assert.deepEqual(result.content.media, []);
 });
+
+test("publishing clears transient content state without touching wallpaper or Memory Card", () => {
+  const local = storage({
+    "awaken.content-admin-draft": "{}",
+    "awaken.content-cache": "{}",
+    "awaken.iconOverrides": "{}",
+    "awakenWallpaper": "teal",
+    "awaken.memory-card": "{}"
+  });
+  const repository = new ContentRepository({ storage: local, fetcher: null });
+  repository.clearPublishedState();
+  assert.equal(local.getItem("awaken.content-admin-draft"), null);
+  assert.equal(local.getItem("awaken.content-cache"), null);
+  assert.equal(local.getItem("awaken.iconOverrides"), null);
+  assert.equal(local.getItem("awakenWallpaper"), "teal");
+  assert.equal(local.getItem("awaken.memory-card"), "{}");
+});

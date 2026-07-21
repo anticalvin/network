@@ -39,13 +39,15 @@ export function mergeManagedIcons(base, entries = []) {
   return base.map((icon) => {
     const entry = overrides.get(icon.applicationId);
     if (!entry) return icon;
+    const remoteIconUrl = normalizeImageUrl(entry.remoteIconUrl);
+    const destinationUrl = safeHttpUrl(entry.destinationUrl) ? new URL(entry.destinationUrl).href : null;
     return {
       ...icon,
       enabled: entry.enabled !== false,
       label: String(entry.label || icon.label).slice(0, 40),
       fallbackText: String(entry.fallbackText || icon.fallbackText || "APP").slice(0, 4),
-      remoteIconUrl: normalizeImageUrl(entry.remoteIconUrl),
-      destinationUrl: safeHttpUrl(entry.destinationUrl) ? entry.destinationUrl : null,
+      remoteIconUrl,
+      destinationUrl: destinationUrl && destinationUrl !== remoteIconUrl ? destinationUrl : null,
       desktop: typeof entry.desktop === "boolean" ? entry.desktop : icon.desktop,
       mobile: typeof entry.mobile === "boolean" ? entry.mobile : icon.mobile,
       sortOrder: Number.isFinite(Number(entry.sortOrder)) ? Number(entry.sortOrder) : icon.sortOrder
@@ -112,6 +114,10 @@ function safeImageUrl(value) {
   if (!value) return "";
   if (/^assets\/[a-z0-9_./-]+$/i.test(value)) return value;
   return normalizeImageUrl(value);
+}
+
+export function normalizeManagedImageUrl(value) {
+  return safeImageUrl(value);
 }
 
 function normalizeImageUrl(value) {

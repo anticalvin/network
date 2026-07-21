@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "../src/system/managed-content.js";
+import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes, normalizeManagedImageUrl } from "../src/system/managed-content.js";
 import { applyMemoryUnlocks } from "../src/content/memory-unlocks.js";
 import { emptyMemoryCard, MEMORY_CARD_KEY, MEMORY_CARD_VERSION, moveToTrash, removeTrashItem, trashItems } from "../src/domain/memory-card.js";
 
@@ -21,6 +21,11 @@ test("published admin links, themes, icons, and flags safely override runtime co
     [{ applicationId: "community", label: "Community", enabled: true }],
     [{ applicationId: "community", label: "Community", remoteIconUrl: "https://ibb.co/Kcy4NWKQ", enabled: true }]
   )[0].remoteIconUrl, "https://i.ibb.co/Kcy4NWKQ/image.webp");
+  assert.equal(mergeManagedIcons(
+    [{ applicationId: "music", label: "Media Player", enabled: true }],
+    [{ applicationId: "music", remoteIconUrl: "https://example.com/icon.png", destinationUrl: "https://example.com/icon.png" }]
+  )[0].destinationUrl, null);
+  assert.equal(normalizeManagedImageUrl("https://ibb.co/M5xjjWqM"), "https://i.ibb.co/M5xjjWqM/image.webp");
   assert.equal(managedFeatureEnabled({ featureFlags: [{ id: "runtime", adsRuntimeEnabled: false }] }, "adsRuntimeEnabled", true), false);
 });
 

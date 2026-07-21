@@ -1,5 +1,5 @@
-import { defaultContent } from "../src/content/default-content.js?v=runtime-12";
-import { ContentRepository } from "../src/data/content-repository.js?v=runtime-12";
+import { defaultContent } from "../src/content/default-content.js?v=runtime-13";
+import { ContentRepository } from "../src/data/content-repository.js?v=runtime-13";
 import { safeUrl } from "../src/domain/media.js?v=runtime-9";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
 import { TEAM_MEMBERS } from "../src/content/contributors.js?v=runtime-9";
@@ -153,7 +153,7 @@ publishButton.addEventListener("click", async () => {
       updated_by: sessionData.session.user.id
     }).select("published_at,updated_at").single();
     if (error) { showStatus(error.message, true); return; }
-    repository.clearLocalDraft();
+    repository.clearPublishedState();
     content = payload;
     editorDirty = false;
     setPublicationState(`Live edition / ${formatDate(receipt?.published_at || payload.updatedAt)}`, "live");
@@ -302,10 +302,6 @@ async function saveForm(event) {
   content = repository.saveLocalDraft(content);
   event.currentTarget.querySelector("[data-save-state]").textContent = "Saved to this device";
   event.currentTarget.querySelector("[data-save-state]").classList.add("saved");
-  if (section === "icons") {
-    const overrides = Object.fromEntries(content.icons.filter((icon) => icon.remoteIconUrl).map((icon) => [icon.applicationId, icon.remoteIconUrl]));
-    localStorage.setItem("awaken.iconOverrides", JSON.stringify(overrides));
-  }
   showStatus("Draft saved to this device. Select Publish NETWORK to make it live.");
 }
 
@@ -326,6 +322,7 @@ function captureEditor(form) {
   if (invalidJson) { showStatus("Typed metadata must be valid JSON.", true); return { ok: false }; }
   const urlFields = schemas[section].filter((field) => field[2] === "url");
   if (urlFields.some(([key]) => entry[key] && !safeUrl(entry[key]))) { showStatus("Use a valid http or https URL.", true); return { ok: false }; }
+  if (section === "icons" && entry.remoteIconUrl && entry.destinationUrl === entry.remoteIconUrl) entry.destinationUrl = null;
   return { ok: true, entry };
 }
 
@@ -413,13 +410,17 @@ function ensureContributorDefaults(contributors = []) {
 function ensureIconDefaults(icons = []) {
   const entries = Array.isArray(icons) ? icons : [];
   const overrides = new Map(entries.filter((icon) => icon?.applicationId || icon?.id).map((icon) => [icon.applicationId || icon.id, icon]));
-  return iconManifest.map((icon) => ({
-    id: icon.applicationId,
-    ...icon,
-    ...(overrides.get(icon.applicationId) || {}),
-    applicationId: icon.applicationId,
-    remoteIconUrl: overrides.get(icon.applicationId)?.remoteIconUrl ?? icon.remoteIconUrl ?? ""
-  }));
+  return iconManifest.map((icon) => {
+    const entry = {
+      id: icon.applicationId,
+      ...icon,
+      ...(overrides.get(icon.applicationId) || {}),
+      applicationId: icon.applicationId,
+      remoteIconUrl: overrides.get(icon.applicationId)?.remoteIconUrl ?? icon.remoteIconUrl ?? ""
+    };
+    if (entry.remoteIconUrl && entry.destinationUrl === entry.remoteIconUrl) entry.destinationUrl = null;
+    return entry;
+  });
 }
 
 function themePreviewMarkup(entry) {

@@ -26,6 +26,7 @@ button, a { min-height: 42px; }
 .admin-tabs button[aria-pressed="true"] { color: #fff; background: #222; }
 .admin-list-panel, .admin-editor { padding: 16px; border-right: 1px solid var(--line); }
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.panel-head > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .panel-head h1 { margin: 0; font-size: 22px; }
 .panel-head button, .primary { color: #fff; background: var(--red); border: 1px solid #9c302c; }
 .entry { width: 100%; display: block; margin-top: 9px; padding: 11px; text-align: left; background: #fff; border: 1px solid var(--line); }

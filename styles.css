@@ -702,6 +702,13 @@ button {
   font-family: Consolas, "Courier New", monospace;
 }
 
+.explorer-sort {
+  min-height: 32px;
+  padding: 5px 7px;
+  border: 1px solid #a2a9b8;
+  background: #fff;
+}
+
 .explorer-list {
   border: 1px solid #b9c1d0;
   background: #fff;

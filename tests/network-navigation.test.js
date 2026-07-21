@@ -27,15 +27,18 @@ test("Spotify and SoundCloud destinations become official embeds", () => {
   assert.equal(classifyNetworkUrl("https://evilsoundcloud.com/awakencult", { baseUrl }).kind, "external");
 });
 
-test("generic external websites require the controlled warning", () => {
+test("generic external websites attempt the XP browser before external fallback", () => {
   const result = classifyNetworkUrl("https://discord.com/channels/1/2", { baseUrl });
   assert.equal(result.kind, "external");
-  assert.equal(result.embeddable, false);
-  assert.equal(result.requiresExternalConfirmation, true);
+  assert.equal(result.embeddable, true);
+  assert.equal(result.requiresExternalConfirmation, false);
 });
 
 test("NOISE deliberately continues externally while VZN and approved portfolio tools can embed", () => {
-  assert.equal(classifyNetworkUrl("https://noise.awakencult.com/").kind, "external");
+  const noise = classifyNetworkUrl("https://noise.awakencult.com/");
+  assert.equal(noise.kind, "external");
+  assert.equal(noise.embeddable, false);
+  assert.equal(noise.requiresExternalConfirmation, true);
   assert.equal(classifyNetworkUrl("https://vzn.awakencult.com/").kind, "awaken");
   assert.equal(classifyNetworkUrl("https://calvinck.com/").kind, "awaken");
 });

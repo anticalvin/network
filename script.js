@@ -1,17 +1,17 @@
-import { defaultContent } from "./src/content/default-content.js?v=runtime-11";
+import { defaultContent } from "./src/content/default-content.js?v=runtime-12";
 import { iconManifest } from "./src/content/icon-manifest.js?v=runtime-9";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
 import { normalizeMedia } from "./src/domain/media.js?v=runtime-9";
 import { selectTransmissions } from "./src/domain/scheduling.js";
-import { ContentRepository } from "./src/data/content-repository.js?v=runtime-11";
+import { ContentRepository } from "./src/data/content-repository.js?v=runtime-12";
 import { brandAssets } from "./src/content/brand-assets.js";
 import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
 import { createSupabaseRestClient } from "./src/data/supabase-client.js";
 import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
-import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-11";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-12";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
@@ -24,8 +24,8 @@ import { atlasEntriesForPath } from "./src/domain/atlas-filesystem.js";
 import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
-import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-11";
-import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-9";
+import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-12";
+import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes } from "./src/system/managed-content.js?v=runtime-12";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -346,8 +346,10 @@ function applyManagedContent() {
   if (Array.isArray(managedContent.links)) {
     const original = [...SOCIALS];
     const existing = new Map(original.map((item) => [item.title.toLowerCase(), item]));
-    const published = managedContent.links
+    const published = [...managedContent.links]
       .filter((item) => item?.verified !== false && links[item.id])
+      .map((item, index) => ({ ...item, sortOrder: Number(item.sortOrder ?? index) }))
+      .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((item) => ({ title: item.label, detail: item.detail || existing.get(String(item.label).toLowerCase())?.detail || "AWAKEN NETWORK destination.", url: links[item.id] }));
     const publishedTitles = new Set(published.map((item) => item.title.toLowerCase()));
     SOCIALS.splice(0, SOCIALS.length, ...published, ...original.filter((item) => !publishedTitles.has(item.title.toLowerCase())));
@@ -368,6 +370,8 @@ function applyManagedInterface() {
   document.querySelector("[data-start-label]").textContent = ui.startButtonLabel;
   const profileImages = document.querySelectorAll("[data-profile-image]");
   if (validManagedImageUrl(ui.profileImageUrl)) profileImages.forEach((image) => { image.src = ui.profileImageUrl; });
+  const userIcon = document.querySelector("[data-user-icon]");
+  if (userIcon && validManagedImageUrl(ui.userIconUrl)) userIcon.src = ui.userIconUrl;
 }
 
 function publishEntryContent(frame) {
@@ -454,7 +458,8 @@ function startClock() {
 function buildDesktop() {
   const desktop = document.getElementById("desktop-icons");
   desktop.innerHTML = "";
-  mergeManagedIcons(iconManifest, managedContent.icons).filter((icon) => icon.enabled && icon.desktop).sort((a, b) => a.sortOrder - b.sortOrder).forEach((manifest) => {
+  const mobile = matchMedia("(max-width: 760px)").matches;
+  mergeManagedIcons(iconManifest, managedContent.icons).filter((icon) => icon.enabled && icon.desktop && (!mobile || icon.mobile !== false)).sort((a, b) => a.sortOrder - b.sortOrder).forEach((manifest) => {
     const id = manifest.applicationId;
     const app = APPS.find((item) => item.id === id);
     if (app) desktop.appendChild(iconButton(app, manifest));
@@ -470,7 +475,10 @@ function iconButton(app, manifest = {}) {
   button.innerHTML = `<span class="desktop-glyph">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
   const img = button.querySelector("img");
   if (img) img.addEventListener("error", () => img.remove());
-  button.addEventListener("click", () => app.action());
+  button.addEventListener("click", () => {
+    if (manifest.destinationUrl) openNetworkUrl(manifest.destinationUrl, { title: manifest.label || app.title, source: "desktop-icon" });
+    else app.action();
+  });
   button.addEventListener("contextmenu", (event) => showContextMenu(event, "icon", app));
   return button;
 }
@@ -714,7 +722,8 @@ function openExplorer(path = "A:\\") {
 }
 
 function renderExplorer(content, path) {
-  const entries = getEntriesForPath(path);
+  const sortMode = content.dataset.explorerSort || "admin";
+  const entries = sortExplorerEntries(getEntriesForPath(path), sortMode);
   content.innerHTML = "";
   const bar = document.createElement("div");
   bar.className = "explorer-bar";
@@ -723,15 +732,27 @@ function renderExplorer(content, path) {
     <button type="button" data-nav="up">Up</button>
     <input class="address" value="${escapeHtml(path)}" aria-label="Address" />
     <button type="button" data-nav="go">Go</button>
+    <select class="explorer-sort" data-explorer-sort aria-label="Sort files">
+      <option value="admin">Admin order</option>
+      <option value="name">Name A-Z</option>
+      <option value="type">Type</option>
+      <option value="newest">Newest</option>
+    </select>
   `;
   content.appendChild(bar);
 
   const address = bar.querySelector(".address");
+  const sort = bar.querySelector("[data-explorer-sort]");
+  sort.value = sortMode;
   bar.querySelector("[data-nav='back']").addEventListener("click", () => navigateExplorer(content, "A:\\"));
   bar.querySelector("[data-nav='up']").addEventListener("click", () => navigateExplorer(content, parentPath(path)));
   bar.querySelector("[data-nav='go']").addEventListener("click", () => navigateExplorer(content, address.value));
   address.addEventListener("keydown", (event) => {
     if (event.key === "Enter") navigateExplorer(content, address.value);
+  });
+  sort.addEventListener("change", () => {
+    content.dataset.explorerSort = sort.value;
+    renderExplorer(content, path);
   });
 
   const list = document.createElement("div");
@@ -748,6 +769,14 @@ function renderExplorer(content, path) {
   });
   if (!entries.length) list.insertAdjacentHTML("beforeend", `<div class="empty-state">This folder is currently empty.</div>`);
   content.appendChild(list);
+}
+
+function sortExplorerEntries(entries, mode) {
+  const next = [...entries];
+  if (mode === "name") return next.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  if (mode === "type") return next.sort((a, b) => String(a.type).localeCompare(String(b.type)) || String(a.name).localeCompare(String(b.name)));
+  if (mode === "newest") return next.sort((a, b) => Date.parse(b.modified) - Date.parse(a.modified) || String(a.name).localeCompare(String(b.name)));
+  return next;
 }
 
 function navigateExplorer(content, path) {
@@ -1151,7 +1180,7 @@ function openLiveInternet() {
     <section class="live-search">
       <strong>Search the LIVE INTERNET</strong>
       <form data-live-search><input name="query" type="search" autocomplete="off" placeholder="Type a web address or search" aria-label="Web search" required /><button type="button" data-live-search-go>Search</button></form>
-      <small>Web results continue through the AWAKEN Internet safety window.</small>
+      <small>AWAKEN Internet tries results inside the XP window first and offers an outside continuation only when needed.</small>
     </section>
     ${sites.length ? `<section class="network-directory"><h2>NETWORK Neighbourhood</h2><div>${sites.map((site) => `<button type="button" data-network-site="${escapeHtml(site.id)}" style="--site-accent:${escapeHtml(site.accent)}"><strong>${escapeHtml(site.title)}</strong><small>${escapeHtml(site.tagline)}</small></button>`).join("")}</div></section>` : ""}
     <section class="live-portals"><h2>Outside Lines</h2>${SOCIALS.map((item) => portalMarkup(item)).join("")}</section>`;
@@ -1799,7 +1828,7 @@ function searchAll(term) {
 
 function iconSource(manifest) {
   const overrides = safeJson(localStorage.getItem("awaken.iconOverrides") || "{}") || {};
-  const remote = overrides[manifest.applicationId] || manifest.remoteIconUrl;
+  const remote = manifest.remoteIconUrl || overrides[manifest.applicationId];
   if (remote && validRemoteImageUrl(remote)) return remote;
   return manifest.imageSource || "";
 }

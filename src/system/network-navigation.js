@@ -48,7 +48,7 @@ export function classifyNetworkUrl(value, options = {}) {
   const media = officialMediaEmbed(parsed);
   if (media) return classification("media-embed", { ...common, embeddable: true, embedUrl: media.url, provider: media.provider });
 
-  return classification("external", { ...common, embeddable: false, requiresExternalConfirmation: true, reason: "This website cannot be guaranteed to load inside the NETWORK." });
+  return classification("external", { ...common, embeddable: true, requiresExternalConfirmation: false, reason: "AWAKEN Internet will try this website inside the NETWORK first." });
 }
 
 export function createNetworkNavigator(adapter = {}) {
@@ -196,6 +196,7 @@ function mountNetworkBrowser(container, context) {
     frame.title = sanitizeDisplayText(currentOptions.title || destination.hostname || "AWAKEN Internet destination");
     frame.referrerPolicy = "strict-origin-when-cross-origin";
     frame.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    if (destination.kind === "external") frame.setAttribute("sandbox", "allow-forms allow-popups allow-same-origin allow-scripts allow-presentation");
     const fallback = element("div", "network-browser-frame-help");
     fallback.append(element("span", "", "If this page remains blank, it may block embedded browsing."));
     if (currentOptions.allowExternalFallback !== false) {

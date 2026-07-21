@@ -43,7 +43,12 @@ export function mergeManagedIcons(base, entries = []) {
       ...icon,
       enabled: entry.enabled !== false,
       label: String(entry.label || icon.label).slice(0, 40),
-      remoteIconUrl: safeHttpUrl(entry.remoteIconUrl) ? entry.remoteIconUrl : icon.remoteIconUrl
+      fallbackText: String(entry.fallbackText || icon.fallbackText || "APP").slice(0, 4),
+      remoteIconUrl: normalizeImageUrl(entry.remoteIconUrl),
+      destinationUrl: safeHttpUrl(entry.destinationUrl) ? entry.destinationUrl : null,
+      desktop: typeof entry.desktop === "boolean" ? entry.desktop : icon.desktop,
+      mobile: typeof entry.mobile === "boolean" ? entry.mobile : icon.mobile,
+      sortOrder: Number.isFinite(Number(entry.sortOrder)) ? Number(entry.sortOrder) : icon.sortOrder
     };
   });
 }
@@ -74,10 +79,12 @@ export function managedFilesystemEntries(entries = [], mediaEntries = []) {
         url,
         src: url,
         mimeType: String(mediaEntry?.mimeType || entry.mimeType || "").slice(0, 100),
+        sortOrder: Number(entry.sortOrder ?? 100),
         managed: true
       };
     })
-    .filter((entry) => entry.path.startsWith("A:\\"));
+    .filter((entry) => entry.path.startsWith("A:\\"))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
 export function managedNetworkSites(entries = []) {
@@ -104,7 +111,20 @@ function safeHttpUrl(value) {
 function safeImageUrl(value) {
   if (!value) return "";
   if (/^assets\/[a-z0-9_./-]+$/i.test(value)) return value;
-  return safeHttpUrl(value) ? value : "";
+  return normalizeImageUrl(value);
+}
+
+function normalizeImageUrl(value) {
+  if (!safeHttpUrl(value)) return null;
+  const url = new URL(value);
+  if (normalizeHostname(url.hostname) === "ibb.co" && /^\/[a-z0-9]+\/?$/i.test(url.pathname)) {
+    return `https://i.ibb.co${url.pathname.replace(/\/$/, "")}/image.webp`;
+  }
+  return url.href;
+}
+
+function normalizeHostname(value = "") {
+  return value.toLowerCase().replace(/^www\./, "");
 }
 
 function safeColor(value) {

@@ -62,7 +62,12 @@ test("admin authentication keeps sign in and sign out as explicit actions", asyn
   assert.match(html, /id="admin-sign-out"/);
   assert.match(html, /id="admin-publish"/);
   assert.match(html, /id="admin-publish" type="button" disabled>Sign in to publish/);
+  assert.match(html, /id="new-file"/);
   assert.doesNotMatch(html, /defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase/);
   assert.match(source, /signInWithPassword/);
   assert.match(source, /network_content_snapshots/);
+  assert.match(source, /userIconUpload/);
+  assert.match(source, /destinationUrl.*Custom destination URL/);
+  assert.match(source, /function moveEntry/);
+  assert.match(source, /function ensureIconDefaults/);
 });

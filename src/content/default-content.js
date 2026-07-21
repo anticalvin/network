@@ -25,6 +25,7 @@ export const defaultContent = {
       profileName: "AWAKEN Guest",
       profileDescription: "Local archive access. Memory Card begins in visitor mode.",
       profileImageUrl: "assets/img/smiley-black.png",
+      userIconUrl: "https://i.ibb.co/gFPrR060/awaken-eye-black.webp",
       userLabel: "visitor",
       startButtonLabel: "Start",
       startPlaceholder: "Search apps, files, projects...",

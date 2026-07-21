@@ -9,7 +9,18 @@ test("published admin links, themes, icons, and flags safely override runtime co
   assert.equal(mergeManagedLinks({}, [{ id: "bad", url: "javascript:alert(1)", verified: true }]).bad, undefined);
   const themes = mergeManagedThemes([{ id: "awaken-default", title: "Default", color: "#da4a44" }], [{ id: "sky", label: "Sky", color: "#93e3fd", enabled: true, sortOrder: 0 }]);
   assert.equal(themes[1].title, "Sky");
-  assert.equal(mergeManagedIcons([{ applicationId: "paint", label: "Paint", enabled: true }], [{ applicationId: "paint", label: "Studio", enabled: false }])[0].enabled, false);
+  const icon = mergeManagedIcons(
+    [{ applicationId: "gallery-folder", label: "Gallery", enabled: true, sortOrder: 2, desktop: true, mobile: true }],
+    [{ applicationId: "gallery-folder", label: "Images", remoteIconUrl: "https://example.com/icon.png", destinationUrl: "https://example.com/gallery", sortOrder: 1, enabled: true, desktop: true, mobile: false }]
+  )[0];
+  assert.equal(icon.remoteIconUrl, "https://example.com/icon.png");
+  assert.equal(icon.destinationUrl, "https://example.com/gallery");
+  assert.equal(icon.sortOrder, 1);
+  assert.equal(icon.mobile, false);
+  assert.equal(mergeManagedIcons(
+    [{ applicationId: "community", label: "Community", enabled: true }],
+    [{ applicationId: "community", label: "Community", remoteIconUrl: "https://ibb.co/Kcy4NWKQ", enabled: true }]
+  )[0].remoteIconUrl, "https://i.ibb.co/Kcy4NWKQ/image.webp");
   assert.equal(managedFeatureEnabled({ featureFlags: [{ id: "runtime", adsRuntimeEnabled: false }] }, "adsRuntimeEnabled", true), false);
 });
 

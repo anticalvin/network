@@ -1,4 +1,4 @@
-import { defaultContent } from "../content/default-content.js?v=runtime-11";
+import { defaultContent } from "../content/default-content.js?v=runtime-12";
 
 const CACHE_KEY = "awaken.content-cache";
 const OVERRIDE_KEY = "awaken.content-admin-draft";

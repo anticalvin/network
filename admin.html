@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <link rel="icon" href="assets/img/smiley-black.png" />
   <title>AWAKEN Content Admin</title>
-  <link rel="stylesheet" href="admin/admin.css?v=runtime-11" />
+  <link rel="stylesheet" href="admin/admin.css?v=runtime-12" />
 </head>
 <body>
   <header class="admin-header">
@@ -55,7 +55,7 @@
       <button type="button" data-section="icons">Desktop Icons</button>
     </nav>
     <section class="admin-list-panel">
-      <div class="panel-head"><h1 id="section-title">Transmissions</h1><button id="new-entry" type="button">New</button></div>
+      <div class="panel-head"><h1 id="section-title">Transmissions</h1><div><button id="new-entry" type="button">New</button><button id="new-file" type="button" hidden>New text file</button></div></div>
       <div id="entry-list"></div>
     </section>
     <section class="admin-editor" aria-label="Content editor">
@@ -67,6 +67,6 @@
   <div id="admin-status" class="admin-status" role="status" hidden></div>
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-  <script type="module" src="admin/admin.js?v=runtime-11"></script>
+  <script type="module" src="admin/admin.js?v=runtime-12"></script>
 </body>
 </html>

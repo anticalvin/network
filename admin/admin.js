@@ -1,5 +1,5 @@
-import { defaultContent } from "../src/content/default-content.js?v=runtime-11";
-import { ContentRepository } from "../src/data/content-repository.js?v=runtime-11";
+import { defaultContent } from "../src/content/default-content.js?v=runtime-12";
+import { ContentRepository } from "../src/data/content-repository.js?v=runtime-12";
 import { safeUrl } from "../src/domain/media.js?v=runtime-9";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
 import { TEAM_MEMBERS } from "../src/content/contributors.js?v=runtime-9";
@@ -24,7 +24,7 @@ const MAX_ADMIN_ASSET_BYTES = 6 * 1024 * 1024;
 const ADMIN_ASSET_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "audio/mpeg", "audio/wav", "audio/mp4", "audio/ogg", "video/mp4", "video/webm", "application/pdf", "application/json", "application/zip", "text/plain"]);
 
 const schemas = {
-  interfaceText: [["productName", "Desktop product name", "text", true], ["desktopStatus", "Desktop status", "text", true], ["softwareName", "Startup software name", "text", true], ["softwareEdition", "Startup edition text", "text"], ["biosCopyright", "BIOS copyright line", "text", true], ["biosRevision", "BIOS revision line", "text"], ["loginProductName", "Login product name", "text"], ["loginIntro", "Login introduction", "textarea"], ["profileName", "Guest profile name", "text"], ["profileDescription", "Guest profile biography", "textarea"], ["profileImageUrl", "Guest profile photo URL", "url"], ["profileImageUpload", "Upload guest profile photo", "asset", false, ["image/*"]], ["userLabel", "Desktop user label", "text"], ["startButtonLabel", "Start button text", "text"], ["startPlaceholder", "Start search placeholder", "text"], ["mediaPlayerName", "Media Player name", "text"], ["mediaPlayerTagline", "Media Player tagline", "text"]],
+  interfaceText: [["productName", "Desktop product name", "text", true], ["desktopStatus", "Desktop status", "text", true], ["softwareName", "Startup software name", "text", true], ["softwareEdition", "Startup edition text", "text"], ["biosCopyright", "BIOS copyright line", "text", true], ["biosRevision", "BIOS revision line", "text"], ["loginProductName", "Login product name", "text"], ["loginIntro", "Login introduction", "textarea"], ["profileName", "Guest profile name", "text"], ["profileDescription", "Guest profile biography", "textarea"], ["profileImageUrl", "Guest profile photo URL", "url"], ["profileImageUpload", "Upload guest profile photo", "asset", false, ["image/*"]], ["userIconUrl", "Start menu visitor icon URL", "url"], ["userIconUpload", "Upload Start menu visitor icon", "asset", false, ["image/*"]], ["userLabel", "Desktop user label", "text"], ["startButtonLabel", "Start button text", "text"], ["startPlaceholder", "Start search placeholder", "text"], ["mediaPlayerName", "Media Player name", "text"], ["mediaPlayerTagline", "Media Player tagline", "text"]],
   transmissions: [
     ["internalTitle", "Internal title", "text", true], ["publicTitle", "Public title", "text", true],
     ["primaryCopy", "Primary copy", "textarea", true], ["secondaryCopy", "Secondary copy", "textarea"],
@@ -33,23 +33,23 @@ const schemas = {
     ["priority", "Priority", "number"], ["verificationStatus", "Fact check", "select", true, ["unverified", "needs_review", "verified"]],
     ["sourceRef", "Source reference", "url"]
   ],
-  links: [["label", "Label", "text", true], ["detail", "Description", "textarea", true], ["url", "URL", "url", true], ["verified", "Verified", "checkbox"]],
+  links: [["label", "Label", "text", true], ["detail", "Description", "textarea", true], ["url", "URL", "url", true], ["sortOrder", "Order", "number"], ["verified", "Verified", "checkbox"]],
   themes: [["label", "Label", "text", true], ["color", "Fallback color", "color", true], ["imageUrl", "Wallpaper image URL", "url"], ["imageUpload", "Upload wallpaper photo", "file"], ["fitMode", "Image fit", "select", true, ["cover", "contain", "tile"]], ["enabled", "Enabled", "checkbox"], ["sortOrder", "Sort order", "number"]],
   fragments: [["title", "Title", "text", true], ["body", "Text", "textarea", true], ["sourceType", "Source type", "text", true], ["sourceRef", "Source record", "text", true], ["status", "Status", "select", true, ["draft", "published", "archived"]]],
   mindPrompts: [["title", "Internal title", "text", true], ["message", "MIND message", "textarea", true], ["enabled", "Enabled", "checkbox"], ["weight", "Frequency weight", "number"]],
-  filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["content", "Text / file content", "textarea"], ["detail", "Description", "textarea"], ["externalUrl", "Media or destination URL", "url"], ["fileUpload", "Upload file", "asset"], ["mediaId", "Media library ID", "text"], ["mimeType", "MIME type", "text"], ["size", "Display size", "text"], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
+  filesystem: [["name", "Name", "text", true], ["path", "Path", "text", true], ["nodeType", "Type", "select", true, ["folder", "image", "audio", "video", "document", "shortcut", "release", "application", "archive", "external_link", "unknown"]], ["content", "Text / file content", "textarea"], ["detail", "Description", "textarea"], ["externalUrl", "Media or destination URL", "url"], ["fileUpload", "Upload file", "asset"], ["mediaId", "Media library ID", "text"], ["mimeType", "MIME type", "text"], ["size", "Display size", "text"], ["sortOrder", "Order", "number"], ["visibility", "Visibility", "select", true, ["public", "unlisted", "authenticated", "team", "private"]], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]]],
   networkSites: [["title", "Site title", "text", true], ["slug", "Address slug", "text", true], ["tagline", "Tagline", "textarea", true], ["body", "Page content", "textarea", true], ["accent", "Accent", "color", true], ["status", "Status", "select", true, ["draft", "published", "archived"]], ["sortOrder", "Sort order", "number"]],
-  media: [["originalFilename", "Filename / track title", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "Media URL", "url"], ["fileUpload", "Upload media file", "asset"], ["mimeType", "MIME type", "text", true], ["caption", "Artist / caption", "textarea"], ["altText", "Alt text", "textarea"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
+  media: [["originalFilename", "Filename / track title", "text", true], ["provider", "Provider", "select", true, ["local", "imgbb", "supabase", "remote"]], ["externalUrl", "Media URL", "url"], ["fileUpload", "Upload media file", "asset"], ["mimeType", "MIME type", "text", true], ["caption", "Artist / caption", "textarea"], ["altText", "Alt text", "textarea"], ["sortOrder", "Order", "number"], ["processingStatus", "Processing", "select", true, ["pending", "processing", "ready", "failed"]], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]]],
   campaigns: [["slug", "Slug", "text", true], ["title", "Title", "text", true], ["status", "Status", "select", true, ["draft", "scheduled", "published", "expired", "archived"]], ["weight", "Weight", "number"], ["startsAt", "Starts", "datetime-local"], ["endsAt", "Ends", "datetime-local"]],
   ads: [["title", "Title", "text", true], ["copy", "Popup copy", "textarea", true], ["mediaUrl", "Popup image URL", "url"], ["mediaUpload", "Upload popup image", "asset", false, ["image/*"]], ["destinationUrl", "Open destination URL", "url"], ["enabled", "Enabled", "checkbox"], ["type", "Type", "select", true, ["security", "messenger", "installer", "memory", "dialer"]], ["weight", "Weight", "number"], ["minimumSessionAgeMs", "Minimum session age (ms)", "number"], ["cooldownMs", "Cooldown (ms)", "number"], ["maximumPerSession", "Maximum per session", "number"], ["maximumPerDay", "Maximum per day", "number"], ["actionType", "Action", "select", true, ["recover", "message", "connect", "open"]], ["contentReference", "Content reference", "text"], ["startAt", "Campaign starts", "datetime-local"], ["endAt", "Campaign ends", "datetime-local"]],
   featureFlags: [["title", "Configuration", "text", true], ["adsRuntimeEnabled", "Ads runtime enabled", "checkbox"], ["intrusionEnabled", "Intrusion enabled", "checkbox"], ["galleryStudioEnabled", "AWAKEN Paint enabled", "checkbox"], ["upgradedMediaPlayerEnabled", "Upgraded Media Player enabled", "checkbox"], ["universeSitesEnabled", "NETWORK universe sites enabled", "checkbox"], ["mindAssistantEnabled", "MIND desktop assistant enabled", "checkbox"]],
   gallerySubmissions: [["title", "Title", "text", true], ["creator", "Creator", "text", true], ["moderationStatus", "Moderation", "select", true, ["review", "approved", "rejected"]], ["atlasEntityId", "Atlas entity", "text"], ["createdAt", "Submitted", "datetime-local"]],
   mindBridge: [["displayName", "Channel", "text", true], ["discordGuildId", "Guild ID", "text", true], ["discordChannelId", "Channel ID", "text", true], ["connectionStatus", "Connection status", "text"], ["lastSyncedAt", "Last sync", "datetime-local"], ["publicVisible", "Public visible", "checkbox"]],
-  contributors: [["displayName", "Display name", "text", true], ["slug", "Slug", "text", true], ["avatarUrl", "Avatar URL", "url"], ["roleLabel", "Role label", "text"], ["biography", "Biography", "textarea"], ["externalUrl", "External URL", "url"], ["discordUserId", "Discord user ID", "text"], ["isTeam", "Team member", "checkbox"], ["isActive", "Active", "checkbox"]],
+  contributors: [["displayName", "Display name", "text", true], ["slug", "Slug", "text", true], ["avatarUrl", "Avatar URL", "url"], ["avatarUpload", "Upload avatar", "asset", false, ["image/*"]], ["roleLabel", "Role label", "text"], ["biography", "Biography", "textarea"], ["externalUrl", "External URL", "url"], ["sortOrder", "Order", "number"], ["discordUserId", "Discord user ID", "text"], ["isTeam", "Team member", "checkbox"], ["isActive", "Active", "checkbox"]],
   atlasEntities: [["name", "Name", "text", true], ["slug", "Slug", "text", true], ["entityType", "Entity type", "select", true, ATLAS_ENTITY_TYPES], ["summary", "Summary", "textarea"], ["description", "Description", "textarea"], ["publicationState", "Publication", "select", true, ATLAS_PUBLICATION_STATES], ["verificationState", "Verification", "select", true, ATLAS_VERIFICATION_STATES], ["confidence", "Confidence 0-1", "number"], ["publicVisible", "Public visible", "checkbox"], ["startDate", "Start date", "datetime-local"], ["endDate", "End date", "datetime-local"], ["aliases", "Aliases (comma separated)", "csv"], ["tags", "Tags (comma separated)", "csv"], ["sourceRefs", "Source IDs (comma separated)", "csv"], ["metadata", "Typed metadata (JSON)", "json"]],
   atlasRelationships: [["subjectId", "Subject entity ID", "text", true], ["predicate", "Relationship type", "text", true], ["objectId", "Object entity ID", "text", true], ["role", "Role or credit detail", "text"], ["creditOrder", "Credit order", "number"], ["verificationState", "Verification", "select", true, ATLAS_VERIFICATION_STATES], ["confidence", "Confidence 0-1", "number"], ["publicVisible", "Public visible", "checkbox"], ["startDate", "Start date", "datetime-local"], ["endDate", "End date", "datetime-local"], ["sourceRefs", "Source IDs (comma separated)", "csv"], ["editorialNotes", "Editorial notes", "textarea"], ["metadata", "Typed metadata (JSON)", "json"]],
   atlasSources: [["title", "Source title", "text", true], ["sourceType", "Source type", "text", true], ["sourceUrl", "Public source URL", "url"], ["internalRef", "Internal reference", "text"], ["sourceDate", "Source date", "datetime-local"], ["originalId", "Original identifier", "text"], ["confidence", "Confidence 0-1", "number"], ["publicSafe", "Public safe", "checkbox"], ["reviewNotes", "Review notes", "textarea"], ["metadata", "Typed metadata (JSON)", "json"]],
-  icons: [["applicationId", "Application ID", "text", true], ["label", "Label", "text", true], ["remoteIconUrl", "Remote icon URL", "url"], ["enabled", "Enabled", "checkbox"]]
+  icons: [["applicationId", "Application ID", "text", true], ["label", "Label", "text", true], ["remoteIconUrl", "Icon image URL", "url"], ["iconUpload", "Upload icon image", "asset", false, ["image/*"]], ["destinationUrl", "Custom destination URL", "url"], ["fallbackText", "Fallback icon text", "text"], ["sortOrder", "Desktop order", "number"], ["desktop", "Show on desktop", "checkbox"], ["mobile", "Show on mobile", "checkbox"], ["enabled", "Enabled", "checkbox"]]
 };
 
 content.filesystem ||= [{ id: "local-community-xp", name: "XP", path: "A:\\Community\\XP", nodeType: "folder", visibility: "public", status: "published" }];
@@ -64,7 +64,7 @@ content.contributors = ensureContributorDefaults(content.contributors);
 content.atlasEntities ||= structuredClone(atlasSeed.entities);
 content.atlasRelationships ||= structuredClone(atlasSeed.relationships);
 content.atlasSources ||= structuredClone(atlasSeed.sources);
-content.icons ||= iconManifest.map((icon) => ({ id: icon.applicationId, applicationId: icon.applicationId, label: icon.label, remoteIconUrl: icon.remoteIconUrl || "", enabled: icon.enabled }));
+content.icons = ensureIconDefaults(content.icons);
 content.ads ||= structuredClone(defaultContent.ads);
 content.featureFlags ||= structuredClone(defaultContent.featureFlags);
 content.gallerySubmissions ||= [];
@@ -211,12 +211,14 @@ document.querySelectorAll("[data-section]").forEach((button) => button.addEventL
   render();
 }));
 document.getElementById("new-entry").addEventListener("click", createEntry);
+document.getElementById("new-file").addEventListener("click", () => createEntry("file"));
 
 function render() {
   document.getElementById("section-title").textContent = titleCase(section);
   const list = document.getElementById("entry-list");
   document.getElementById("new-entry").hidden = ["gallerySubmissions", "interfaceText"].includes(section);
-  document.getElementById("new-entry").textContent = section === "filesystem" ? "New folder or file" : "New";
+  document.getElementById("new-entry").textContent = section === "filesystem" ? "New folder" : "New";
+  document.getElementById("new-file").hidden = section !== "filesystem";
   list.innerHTML = "";
   (content[section] || []).forEach((entry, index) => {
     const button = document.createElement("button");
@@ -229,7 +231,7 @@ function render() {
   renderEditor();
 }
 
-function createEntry() {
+function createEntry(kind = "entry") {
   const id = `draft-${Date.now()}`;
   const base = section === "transmissions"
     ? { id, status: "draft", priority: 0, mobileEligible: true, desktopEligible: true, frequency: { scope: "browser", maxDisplays: 1 }, routes: ["desktop"], dismissal: "browser" }
@@ -244,7 +246,9 @@ function createEntry() {
             : section === "mindPrompts"
               ? { id, title: "New MIND message", message: "", enabled: true, weight: 1 }
               : section === "filesystem"
-                ? { id, name: "New Folder", path: "A:\\New Folder", nodeType: "folder", visibility: "public", status: "published" }
+              ? kind === "file"
+                ? { id, name: "New File.txt", path: "A:\\Archive\\Assets\\New File.txt", nodeType: "document", content: "", sortOrder: (content.filesystem || []).length, visibility: "public", status: "published" }
+                : { id, name: "New Folder", path: "A:\\New Folder", nodeType: "folder", sortOrder: (content.filesystem || []).length, visibility: "public", status: "published" }
                 : section === "media"
                   ? { id, originalFilename: "New media", provider: "supabase", externalUrl: null, mimeType: "audio/mpeg", processingStatus: "ready", moderationStatus: "approved" }
                   : section === "ads"
@@ -260,10 +264,11 @@ function renderEditor() {
   if (selectedIndex === null) { form.innerHTML = `<div class="editor-empty">Select an entry or create a new one.</div>`; return; }
   const entry = content[section][selectedIndex];
   const lockedRecord = section === "interfaceText" || (section === "themes" && entry.id === "awaken-default");
-  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.productName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2>${section === "themes" ? themePreviewMarkup(entry) : ""}<div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}${section === "interfaceText" ? "" : `<button type="button" data-duplicate>Duplicate</button>`}${lockedRecord ? "" : `<button class="danger" type="button" data-delete>Delete</button>`}<span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
+  form.innerHTML = `<h2>${escapeHtml(entry.publicTitle || entry.displayName || entry.productName || entry.name || entry.label || entry.title || entry.predicate || "New entry")}</h2>${section === "themes" ? themePreviewMarkup(entry) : ""}<div class="form-grid">${schemas[section].map((field) => fieldMarkup(field, entry)).join("")}</div><div data-warning></div><div class="form-actions"><button class="primary" type="submit">Save device draft</button>${section === "ads" ? `<button type="button" data-preview-ad>Preview on desktop</button>` : ""}${section === "interfaceText" ? "" : `<button type="button" data-move="up" title="Move earlier" aria-label="Move earlier">↑</button><button type="button" data-move="down" title="Move later" aria-label="Move later">↓</button><button type="button" data-duplicate>Duplicate</button>`}${lockedRecord ? "" : `<button class="danger" type="button" data-delete>Delete</button>`}<span class="form-save-state" data-save-state>${editorDirty ? "Unsaved changes" : ""}</span></div>`;
   form.addEventListener("submit", saveForm);
   form.querySelector("[data-duplicate]")?.addEventListener("click", duplicateEntry);
   form.querySelector("[data-delete]")?.addEventListener("click", deleteEntry);
+  form.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => moveEntry(button.dataset.move)));
   form.querySelector("[data-theme-upload]")?.addEventListener("change", uploadThemeWallpaper);
   form.querySelectorAll("[data-asset-upload]").forEach((input) => input.addEventListener("change", uploadAdminAsset));
   form.querySelector("[name='imageUrl']")?.addEventListener("input", updateThemePreview);
@@ -347,6 +352,22 @@ function duplicateEntry() {
   render();
 }
 
+function moveEntry(direction) {
+  const entries = content[section];
+  const nextIndex = direction === "up" ? selectedIndex - 1 : selectedIndex + 1;
+  if (!Array.isArray(entries) || nextIndex < 0 || nextIndex >= entries.length) return;
+  [entries[selectedIndex], entries[nextIndex]] = [entries[nextIndex], entries[selectedIndex]];
+  selectedIndex = nextIndex;
+  if (schemas[section]?.some(([key]) => key === "sortOrder")) {
+    entries.forEach((entry, index) => { entry.sortOrder = index; });
+  }
+  content = repository.saveLocalDraft(content);
+  editorDirty = false;
+  setPublicationState("Local device draft / not published", "draft");
+  showStatus("Order updated. Select Publish NETWORK to make it live.");
+  render();
+}
+
 function deleteEntry() {
   if (!confirm("Delete this local entry?")) return;
   content[section].splice(selectedIndex, 1);
@@ -387,6 +408,18 @@ function ensureContributorDefaults(contributors = []) {
   const known = TEAM_MEMBERS.map((person) => ({ ...person, ...(overrides.get(person.slug) || {}), isTeam: overrides.get(person.slug)?.isTeam !== false, isActive: overrides.get(person.slug)?.isActive !== false }));
   const knownIds = new Set(known.flatMap((person) => [person.id, person.slug]));
   return [...known, ...entries.filter((person) => !knownIds.has(person.id) && !knownIds.has(person.slug))];
+}
+
+function ensureIconDefaults(icons = []) {
+  const entries = Array.isArray(icons) ? icons : [];
+  const overrides = new Map(entries.filter((icon) => icon?.applicationId || icon?.id).map((icon) => [icon.applicationId || icon.id, icon]));
+  return iconManifest.map((icon) => ({
+    id: icon.applicationId,
+    ...icon,
+    ...(overrides.get(icon.applicationId) || {}),
+    applicationId: icon.applicationId,
+    remoteIconUrl: overrides.get(icon.applicationId)?.remoteIconUrl ?? icon.remoteIconUrl ?? ""
+  }));
 }
 
 function themePreviewMarkup(entry) {
@@ -457,7 +490,7 @@ async function uploadAdminAsset(event) {
     if (error) { showStatus(error.message, true); return; }
     const { data } = authClient.storage.from(ADMIN_ASSET_BUCKET).getPublicUrl(objectPath);
     if (!safeUrl(data.publicUrl)) { showStatus("The file uploaded, but its public URL was invalid.", true); return; }
-    const target = input.name === "profileImageUpload" ? "profileImageUrl" : input.name === "mediaUpload" ? "mediaUrl" : "externalUrl";
+    const target = ({ profileImageUpload: "profileImageUrl", userIconUpload: "userIconUrl", mediaUpload: "mediaUrl", iconUpload: "remoteIconUrl", avatarUpload: "avatarUrl" })[input.name] || "externalUrl";
     if (form.elements[target]) form.elements[target].value = data.publicUrl;
     if (section === "filesystem") {
       if (form.elements.name.value === "New Folder" || !form.elements.name.value) form.elements.name.value = file.name;

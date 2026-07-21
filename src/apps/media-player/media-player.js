@@ -156,6 +156,7 @@ function playerMarkup(projects, interfaceText) {
 function managedAudioTracks(media) {
   return (Array.isArray(media) ? media : [])
     .filter((item) => item?.processingStatus === "ready" && item?.moderationStatus === "approved" && String(item.mimeType || "").startsWith("audio/") && safeHttpUrl(item.externalUrl))
+    .sort((a, b) => Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100))
     .map((item) => ({ name: item.originalFilename || item.caption || "AWAKEN audio", artist: item.caption || "Published from AWAKEN Admin", type: item.mimeType, url: item.externalUrl, managed: true }));
 }
 

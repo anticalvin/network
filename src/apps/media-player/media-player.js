@@ -4,7 +4,7 @@ import { AWAKEN_EVENTS, awakenBus } from "../../system/event-bus.js";
 const FREQUENCIES = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 const PRESETS = { flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bass: [8, 7, 5, 3, 1, 0, -1, -2, -2, -2], vocal: [-3, -2, -1, 1, 3, 5, 5, 3, 1, -1], bright: [-3, -2, -1, 0, 1, 2, 4, 6, 7, 8], club: [5, 4, 2, 0, -1, 1, 3, 4, 5, 4] };
 
-export function renderMediaPlayer(container, { projects = [], links = {}, audio: previewAudio = null, media = [], interfaceText = {} }) {
+export function renderMediaPlayer(container, { projects = [], links = {}, audio: previewAudio = null, media = [], interfaceText = {}, initialTrack = null }) {
   container.innerHTML = playerMarkup(projects, interfaceText);
   const find = (selector) => container.querySelector(selector);
   const audio = document.createElement("audio");
@@ -19,7 +19,31 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   let frame = 0;
   let disposed = false;
   let provider = "apple";
+  const playerWindow = container.closest(".window");
   const probes = new Set();
+  function showPanel(panel) {
+    find('.media-studio').dataset.panel = panel;
+    container.querySelectorAll('[data-player-panel]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.playerPanel === panel)));
+    container.scrollTop = 0;
+  }
+  container.querySelectorAll('[data-player-panel]').forEach((button) => button.addEventListener('click', () => showPanel(button.dataset.playerPanel)));
+  function openRequested(track) {
+    if (track?.release) {
+      const project = track.release;
+      provider = ['apple', 'soundcloud', 'spotify'].find((name) => mediaProviderEmbed(name, project.url)) || 'apple';
+      find('[data-stream-url]').value = project.url;
+      loadEmbed(project.url);
+      return;
+    }
+    const url = track?.src || track?.url;
+    if (!safeHttpUrl(url)) { find('[data-status]').textContent = 'This file has no supported audio source.'; return; }
+    let index = playlist.findIndex((item) => item.url === url);
+    if (index < 0) { playlist.push({name: track.name || 'AWAKEN audio', url, artist: track.caption || '', managed: true}); index = playlist.length - 1; }
+    showPanel('listen');
+    loadTrack(index, true);
+  }
+  const receiveTrack = (event) => openRequested(event.detail);
+  playerWindow?.addEventListener('awaken:play-file', receiveTrack);
   let preferences = {};
   try { preferences = JSON.parse(localStorage.getItem("awaken.player-preferences")) || {}; } catch {}
   audio.volume = Number.isFinite(preferences.volume) ? Math.max(0, Math.min(1, preferences.volume)) : .85;
@@ -105,6 +129,8 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   function loadTrack(index, autoplay) {
     if (!playlist.length) return;
     currentIndex = (index + playlist.length) % playlist.length;
+    find("[data-stream-frame]").innerHTML = "";
+    showPanel("listen");
     audio.src = playlist[currentIndex].url;
     find("[data-title]").textContent = playlist[currentIndex].name.replace(/\.[^.]+$/, "");
     find("[data-artist]").textContent = playlist[currentIndex].artist || "AWAKEN managed media";
@@ -138,8 +164,10 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
     const source = mediaProviderEmbed(provider, url);
     const frame = find("[data-stream-frame]");
     if (!source) { find("[data-status]").textContent = `That ${provider} URL is not supported.`; return; }
+    audio.pause(); renderPlaylist(); showPanel('streams');
+    container.querySelectorAll('[data-provider]').forEach((button) => button.classList.toggle('active', button.dataset.provider === provider));
     frame.innerHTML = `<iframe title="Official ${provider} player" src="${escapeHtml(source)}" loading="lazy" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
-    find("[data-status]").textContent = `Official ${provider} embed loaded. Browser security keeps its audio separate; EQ and live analysis apply to AWAKEN uploads and direct audio.`;
+    find("[data-status]").textContent = `Use the ${provider} player controls below. EQ applies only to direct audio.`;
   }
 
   find("[data-files]").addEventListener("change", (event) => addFiles(event.target.files));
@@ -159,18 +187,23 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   container.querySelectorAll("[data-provider]").forEach((button) => button.addEventListener("click", () => { provider = button.dataset.provider; container.querySelectorAll("[data-provider]").forEach((item) => item.classList.toggle("active", item === button)); find("[data-stream-url]").placeholder = `Paste an official ${provider} URL`; }));
   find("[data-load-stream]").addEventListener("click", () => loadEmbed(find("[data-stream-url]").value.trim()));
   find("[data-clear-stream]").addEventListener("click", () => { find("[data-stream-frame]").innerHTML = ""; });
-  container.querySelectorAll("[data-release]").forEach((button) => button.addEventListener("click", () => { const project = projects.find((item) => item.id === button.dataset.release); if (project?.url) { provider = "apple"; find("[data-stream-url]").value = project.url; loadEmbed(project.url); } }));
+  container.querySelectorAll("[data-release]").forEach((button) => button.addEventListener("click", () => { const project = projects.find((item) => item.id === button.dataset.release); if (project) openRequested({release: project}); }));
 
   audio.addEventListener("timeupdate", () => { find("[data-current]").textContent = formatTime(audio.currentTime); find("[data-duration]").textContent = formatTime(audio.duration); find("[data-seek]").value = audio.duration ? String(audio.currentTime / audio.duration * 1000) : "0"; });
   audio.addEventListener("error", () => { if (!disposed && audio.getAttribute("src")) find("[data-status]").textContent = "This audio could not be loaded. Try another file or source."; });
   audio.addEventListener("ended", () => loadTrack(currentIndex + 1, true));
-  drawVisualizer(find("canvas"), () => ({ analyser, visualization, disposed }), (id) => { frame = id; });
+  const stopVisualizer = drawVisualizer(find("canvas"), () => ({ analyser, visualization, disposed, playing: !audio.paused && !playerWindow?.hidden }), (id) => { frame = id; });
   renderPlaylist();
   if (playlist.length) loadTrack(0, false);
+  showPanel("library");
+  if (initialTrack) openRequested(initialTrack);
   awakenBus.emit(AWAKEN_EVENTS.MEDIA_OPEN);
 
   return () => {
     disposed = true;
+    stopVisualizer();
+    playerWindow?.removeEventListener("awaken:play-file", receiveTrack);
+    find("[data-stream-frame]").innerHTML = "";
     cancelAnimationFrame(frame);
     audio.pause();
     audio.removeAttribute("src");
@@ -188,7 +221,7 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
 function playerMarkup(projects, interfaceText) {
   const name = escapeHtml(interfaceText.mediaPlayerName || "AWAKEN Media Player");
   const tagline = escapeHtml(interfaceText.mediaPlayerTagline || "AWAKEN local signal");
-  return `<div class="media-studio"><aside class="media-library"><strong>${name}</strong><span>Media Library</span><span>Admin Audio</span><span>Local Audio</span><span>Atlas Releases</span><span>Official Streams</span></aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>${tagline}</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>Verified public Atlas releases</h3><div>${projects.filter((project) => project.tracks?.length).map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button><a data-youtube target="_blank" rel="noopener noreferrer">YouTube ↗</a></div><div><input data-stream-url aria-label="Official streaming URL" placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset aria-label="Equalizer preset">${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status role="status" aria-live="polite">Ready / EQ controls AWAKEN-hosted and local audio</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
+  return `<div class="media-studio" data-panel="library"><aside class="media-library"><strong>${name}</strong>${[['library','AWAKEN Library'],['listen','Now Playing'],['streams','Streaming'],['eq','Equalizer']].map(([id,label]) => `<button type="button" data-player-panel="${id}">${label}</button>`).join('')}</aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>${tagline}</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>AWAKEN releases — choose one to listen</h3><div>${projects.map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button><a data-youtube target="_blank" rel="noopener noreferrer">YouTube ↗</a></div><div><input data-stream-url aria-label="Official streaming URL" placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset aria-label="Equalizer preset">${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status role="status" aria-live="polite">Choose a release from the AWAKEN library.</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
 }
 
 function managedAudioTracks(media) {
@@ -207,10 +240,13 @@ function drawVisualizer(canvas, state, setFrame) {
   const frequency = new Uint8Array(512);
   const waveform = new Uint8Array(1024);
   const peaks = new Float32Array(48);
+  let idleTimer = 0;
+  let stopped = false;
   function draw() {
-    const { analyser, visualization, disposed } = state();
+    const { analyser, visualization, disposed, playing } = state();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reducedMotion === "true";
-    if (disposed) return;
+    if (disposed || stopped) return;
+    if (document.hidden || !playing || reducedMotion) { idleTimer = setTimeout(draw, 750); return; }
     const width = canvas.width;
     const height = canvas.height;
     context.fillStyle = "#030704";
@@ -237,6 +273,7 @@ function drawVisualizer(canvas, state, setFrame) {
     setFrame(requestAnimationFrame(draw));
   }
   draw();
+  return () => { stopped = true; clearTimeout(idleTimer); };
 }
 
 function formatTime(seconds) { return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}` : "0:00"; }

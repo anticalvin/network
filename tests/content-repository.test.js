@@ -37,7 +37,7 @@ test("an admin local preview remains private and wins over the live snapshot", a
     fetcher: async () => { fetched = true; }
   });
 
-  const result = await repository.getPublicContent();
+  const result = await repository.getPublicContent({ includeDraft: true });
   assert.equal(result.source, "admin-local");
   assert.equal(result.content.links[0].id, "preview");
   assert.equal(fetched, false);

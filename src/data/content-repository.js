@@ -11,10 +11,10 @@ export class ContentRepository {
     this.config = config;
   }
 
-  async getPublicContent() {
-    const draft = this.read(OVERRIDE_KEY);
+  async getPublicContent({ includeDraft = false } = {}) {
+    const draft = includeDraft ? this.read(OVERRIDE_KEY) : null;
     const local = mergeContent(draft || this.read(CACHE_KEY) || defaultContent);
-    if (draft) return { content: local, source: "admin-local" };
+    if (draft) return { content: local, source: "admin-local", revision: this.read("awaken.draft-base-revision") };
     const request = this.remoteRequest();
     if (!request) return { content: local, source: "bundled" };
     try {
@@ -22,14 +22,16 @@ export class ContentRepository {
       if (!response.ok) throw new Error(`Content request failed: ${response.status}`);
       const payload = await response.json();
       const remote = mergeContent(this.endpoint ? payload : payload?.[0]?.payload);
-      this.storage.setItem(CACHE_KEY, JSON.stringify(remote));
-      return { content: remote, source: "remote" };
+      const revision = this.endpoint ? null : payload?.[0]?.updated_at || null;
+      try { this.storage.setItem(CACHE_KEY, JSON.stringify(remote)); this.storage.setItem("awaken.live-revision", JSON.stringify(revision)); } catch {}
+      return { content: remote, source: "remote", revision };
     } catch {
       return { content: local, source: "fallback" };
     }
   }
 
   saveLocalDraft(content) {
+    if (!this.read(OVERRIDE_KEY)) this.storage.setItem("awaken.draft-base-revision", JSON.stringify(this.read("awaken.live-revision")));
     const next = { ...content, updatedAt: new Date().toISOString() };
     this.storage.setItem(OVERRIDE_KEY, JSON.stringify(next));
     return next;
@@ -38,6 +40,7 @@ export class ContentRepository {
   clearLocalDraft() { this.storage.removeItem(OVERRIDE_KEY); }
   clearPublishedState() {
     this.storage.removeItem(OVERRIDE_KEY);
+    this.storage.removeItem("awaken.draft-base-revision");
     this.storage.removeItem(CACHE_KEY);
     this.storage.removeItem("awaken.iconOverrides");
   }
@@ -49,7 +52,7 @@ export class ContentRepository {
     const key = this.config.supabasePublishableKey || this.config.supabaseAnonKey;
     if (!base || !key || !this.fetcher) return null;
     return {
-      url: `${base}/rest/v1/network_content_snapshots?id=eq.live&published=eq.true&select=payload&limit=1`,
+      url: `${base}/rest/v1/network_content_snapshots?id=eq.live&published=eq.true&select=payload,updated_at&limit=1`,
       headers: { Accept: "application/json", apikey: key, Authorization: `Bearer ${key}` }
     };
   }

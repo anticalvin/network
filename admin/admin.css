@@ -75,3 +75,7 @@ button, a { min-height: 42px; }
   .admin-tabs { grid-template-columns: 1fr 1fr; }
   .panel-head h1 { font-size: 19px; overflow-wrap: anywhere; }
 }
+.editor-workflow { padding: 12px; border-bottom: 1px solid #a5b6ca; background: #edf3ff; }
+.editor-workflow button { margin: 4px; min-height: 38px; }
+.editor-workflow details { margin-top: 8px; }
+#publication-history { display: flex; flex-wrap: wrap; gap: 5px; }

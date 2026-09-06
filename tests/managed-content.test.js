@@ -20,12 +20,12 @@ test("published admin links, themes, icons, and flags safely override runtime co
   assert.equal(mergeManagedIcons(
     [{ applicationId: "community", label: "Community", enabled: true }],
     [{ applicationId: "community", label: "Community", remoteIconUrl: "https://ibb.co/Kcy4NWKQ", enabled: true }]
-  )[0].remoteIconUrl, "https://i.ibb.co/Kcy4NWKQ/image.webp");
+  )[0].remoteIconUrl, null);
   assert.equal(mergeManagedIcons(
     [{ applicationId: "music", label: "Media Player", enabled: true }],
     [{ applicationId: "music", remoteIconUrl: "https://example.com/icon.png", destinationUrl: "https://example.com/icon.png" }]
   )[0].destinationUrl, null);
-  assert.equal(normalizeManagedImageUrl("https://ibb.co/M5xjjWqM"), "https://i.ibb.co/M5xjjWqM/image.webp");
+  assert.equal(normalizeManagedImageUrl("https://ibb.co/M5xjjWqM"), null);
   assert.equal(managedFeatureEnabled({ featureFlags: [{ id: "runtime", adsRuntimeEnabled: false }] }, "adsRuntimeEnabled", true), false);
 });
 

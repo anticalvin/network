@@ -1,17 +1,20 @@
+import { visitFolder, stepFolder } from "./src/domain/explorer-history.js";
+import { releaseCatalog } from "./src/domain/release-catalog.js";
+import { systemSound } from "./src/system/sound.js";
 import { defaultContent } from "./src/content/default-content.js?v=runtime-13";
-import { iconManifest } from "./src/content/icon-manifest.js?v=runtime-9";
+import { iconManifest } from "./src/content/icon-manifest.js?v=experience-1";
 import { applyMemoryUnlocks, hasMemoryUnlock, MEMORY_UNLOCKS } from "./src/content/memory-unlocks.js";
 import { addMemoryItem, emptyMemoryCard, loadMemoryCard, moveToTrash, removeMemoryItem, removeTrashItem, saveMemoryCard, setDismissal, trashItems } from "./src/domain/memory-card.js?v=runtime-7";
 import { normalizeMedia } from "./src/domain/media.js?v=runtime-9";
 import { selectTransmissions } from "./src/domain/scheduling.js";
-import { ContentRepository } from "./src/data/content-repository.js?v=runtime-13";
+import { ContentRepository } from "./src/data/content-repository.js?v=experience-1";
 import { brandAssets } from "./src/content/brand-assets.js";
 import { AWAKEN_EVENTS, awakenBus } from "./src/system/event-bus.js";
 import { createSupabaseRestClient } from "./src/data/supabase-client.js";
 import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
-import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-14";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=experience-1";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
@@ -25,7 +28,7 @@ import { AtlasRepository } from "./src/data/atlas-repository.js";
 import { SupabaseAtlasAdapter } from "./src/data/adapters/supabase-atlas-adapter.js";
 import { GalleryRepository } from "./src/data/gallery-repository.js";
 import { configureNetworkNavigation, openNetworkUrl, resolveNetworkInput } from "./src/system/network-navigation.js?v=runtime-13";
-import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes, normalizeManagedImageUrl } from "./src/system/managed-content.js?v=runtime-13";
+import { managedFeatureEnabled, managedFilesystemEntries, managedNetworkSites, mergeManagedIcons, mergeManagedLinks, mergeManagedThemes, normalizeManagedImageUrl } from "./src/system/managed-content.js?v=experience-1";
 
 const BOOT_MESSAGES = [
   "AWAKEN OS v4.2",
@@ -206,6 +209,8 @@ const WALLPAPERS = [
   { id: "black", title: "Black", color: "#050505", detail: "low light terminal mode" }
 ];
 
+const LEGACY_PROJECTS = structuredClone(PROJECTS);
+
 const FILES = [
   ...PROJECTS.map((project) => ({
     name: `${project.title}.pkg`,
@@ -325,7 +330,7 @@ async function initializeDesktop({ entryComplete = false, contentLoaded = false 
 }
 
 async function loadManagedRuntimeContent() {
-  const loaded = await repository.getPublicContent();
+  const loaded = await repository.getPublicContent({ includeDraft: new URLSearchParams(location.search).has("adminPreview") });
   managedContent = loaded.content;
   applyManagedContent();
   if (managedContent.atlasEntities || managedContent.atlasRelationships || managedContent.atlasSources) {
@@ -334,7 +339,12 @@ async function loadManagedRuntimeContent() {
       relationships: managedContent.atlasRelationships,
       sources: managedContent.atlasSources
     });
-  } else void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; });
+  } else void atlasRepository.getBundle({ publicOnly: true }).then((bundle) => { PUBLIC_ATLAS = bundle; syncCatalog(); });
+  syncCatalog();
+}
+
+function syncCatalog() {
+  PROJECTS.splice(0, PROJECTS.length, ...releaseCatalog(PUBLIC_ATLAS.entities, LEGACY_PROJECTS), ...LEGACY_PROJECTS.filter((item) => !item.tracks.length));
 }
 
 function applyManagedContent() {
@@ -432,6 +442,12 @@ function finishBoot() {
   startClock();
   buildDesktop();
   bindStartMenu();
+  const desktopButton = document.createElement("button"); desktopButton.type = "button"; desktopButton.className = "show-desktop"; desktopButton.textContent = "▣"; desktopButton.title = "Show desktop"; desktopButton.setAttribute("aria-label", "Show desktop");
+  desktopButton.addEventListener("click", () => document.querySelectorAll(".window:not([hidden])").forEach(minimizeWindow));
+  taskButtons.before(desktopButton);
+  if (new URLSearchParams(location.search).has("adminPreview")) {
+    const badge = document.createElement("a"); badge.className = "preview-badge"; badge.href = "?skipBoot=1"; badge.textContent = "DEVICE DRAFT PREVIEW · View live edition"; osContainer.appendChild(badge);
+  }
   bindDesktopContextMenu();
   applyPreferences();
   scheduleTransmissions();
@@ -484,7 +500,10 @@ function iconButton(app, manifest = {}) {
   const image = source ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(manifest.alt || "")}" loading="lazy" />` : "";
   button.innerHTML = `<span class="desktop-glyph${source ? " has-image" : ""}">${image}<b>${manifest.fallbackText || app.icon}</b></span><span>${manifest.label || app.title}</span>`;
   const img = button.querySelector("img");
-  if (img) img.addEventListener("error", () => img.remove());
+  if (img) img.addEventListener("error", () => {
+    const bundled = iconManifest.find((item) => item.applicationId === app.id)?.imageSource;
+    if (bundled && img.dataset.fallback !== "true") { img.dataset.fallback = "true"; img.src = bundled; } else img.remove();
+  });
   button.addEventListener("click", () => {
     if (!manifest.destinationUrl || manifest.destinationUrl === source) {
       app.action();
@@ -599,6 +618,7 @@ function createWindow(title, options = {}) {
   makeDraggable(win, header);
 
   const task = addTask(win, title);
+  systemSound();
   close.addEventListener("click", (event) => {
     event.stopPropagation();
     const closeEvent = new CustomEvent("awaken:window-close", { cancelable: true });
@@ -760,6 +780,7 @@ function renderExplorer(content, path) {
   bar.className = "explorer-bar";
   bar.innerHTML = `
     <button type="button" data-nav="back">Back</button>
+    <button type="button" data-nav="forward">Forward</button>
     <button type="button" data-nav="up">Up</button>
     <input class="address" value="${escapeHtml(path)}" aria-label="Address" />
     <button type="button" data-nav="go">Go</button>
@@ -771,11 +792,24 @@ function renderExplorer(content, path) {
     </select>
   `;
   content.appendChild(bar);
+  if (path.toLowerCase().startsWith("a:\\archive")) {
+    const introduction = document.createElement("p"); introduction.className = "archive-intro";
+    introduction.textContent = path.toLowerCase() === "a:\\archive" ? "AWAKEN through the years. Open an era, discover a release, and save what stays with you." : `${entries.length} items in this part of the archive. Explore, listen and save to your Memory Card.`;
+    content.appendChild(introduction);
+  }
 
   const address = bar.querySelector(".address");
   const sort = bar.querySelector("[data-explorer-sort]");
   sort.value = sortMode;
-  bar.querySelector("[data-nav='back']").addEventListener("click", () => navigateExplorer(content, "A:\\"));
+  content.explorerHistory ||= visitFolder(undefined, path);
+  for (const [direction, delta] of [["back", -1], ["forward", 1]]) {
+    const button = bar.querySelector(`[data-nav='${direction}']`);
+    button.disabled = delta < 0 ? content.explorerHistory.index <= 0 : content.explorerHistory.index >= content.explorerHistory.paths.length - 1;
+    button.addEventListener("click", () => {
+      content.explorerHistory = stepFolder(content.explorerHistory, delta);
+      navigateExplorer(content, content.explorerHistory.paths[content.explorerHistory.index], false);
+    });
+  }
   bar.querySelector("[data-nav='up']").addEventListener("click", () => navigateExplorer(content, parentPath(path)));
   bar.querySelector("[data-nav='go']").addEventListener("click", () => navigateExplorer(content, address.value));
   address.addEventListener("keydown", (event) => {
@@ -788,13 +822,22 @@ function renderExplorer(content, path) {
 
   const list = document.createElement("div");
   list.className = "explorer-list";
+  const imageEntries = entries.filter((entry) => entry.type === "Image");
+  if (imageEntries.length) {
+    const view = document.createElement("button"); view.type = "button"; view.textContent = content.dataset.fileView === "details" ? "Thumbnails" : "Details";
+    view.addEventListener("click", () => { content.dataset.fileView = content.dataset.fileView === "details" ? "thumbnails" : "details"; renderExplorer(content, path); }); bar.appendChild(view);
+    if (content.dataset.fileView !== "details") list.classList.add("thumbnail-list");
+  }
   list.innerHTML = `<div class="file-row header"><span></span><span>Name</span><span>Type</span><span>Size</span><span>Modified</span></div>`;
   entries.forEach((entry) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "file-row";
     row.innerHTML = `<span>${escapeHtml(iconFor(entry.type))}</span><span>${escapeHtml(entry.name || "Untitled")}</span><span>${escapeHtml(entry.type || "File")}</span><span>${escapeHtml(entry.size || "--")}</span><span>${escapeHtml(entry.modified || "--")}</span>`;
-    row.addEventListener("click", () => openEntry(entry, content));
+    if (entry.type === "Image" && list.classList.contains("thumbnail-list")) {
+      const image = document.createElement("img"); image.src = entry.src || entry.url; image.alt = ''; image.loading = 'lazy'; image.addEventListener('error', () => image.remove()); row.prepend(image);
+    }
+    row.addEventListener("click", () => entry.type === "Image" ? openImage(entry, imageEntries) : openEntry(entry, content));
     row.addEventListener("contextmenu", (event) => showContextMenu(event, "file", entry));
     list.appendChild(row);
   });
@@ -810,8 +853,9 @@ function sortExplorerEntries(entries, mode) {
   return next;
 }
 
-function navigateExplorer(content, path) {
+function navigateExplorer(content, path, record = true) {
   const next = normalizePath(path);
+  if (record) content.explorerHistory = visitFolder(content.explorerHistory, next);
   currentPath = next;
   document.getElementById("path-label").textContent = next;
   const win = content.closest(".window");
@@ -823,14 +867,19 @@ function navigateExplorer(content, path) {
     win.querySelector(".window-controls button:last-child")?.setAttribute("aria-label", `Close ${title}`);
     win.dataset.appId = `explorer:${next.toLowerCase()}`;
     const task = document.querySelector(`[data-window-task="${win.dataset.id}"]`);
-    if (task) task.textContent = title;
+    if (task) { (task.querySelector(".task-label") || task).textContent = title; task.title = title; }
   }
   renderExplorer(content, next);
 }
 
 function getEntriesForPath(path) {
   const p = normalizePath(path).toLowerCase();
-  const includeManaged = (entries = []) => mergeDirectoryEntries(entries, managedFiles.filter((entry) => parentPath(entry.path).toLowerCase() === p));
+  const includeManaged = (entries = []) => {
+    const prefix = p.endsWith("\\") ? p : `${p}\\`;
+    const descendants = managedFiles.filter((entry) => entry.path.toLowerCase().startsWith(prefix));
+    const folders = descendants.flatMap((entry) => { const suffix = entry.path.slice(prefix.length); return suffix.includes("\\") ? [folder(suffix.split("\\")[0], `${prefix}${suffix.split("\\")[0]}`)] : []; });
+    return mergeDirectoryEntries(entries, [...folders, ...managedFiles.filter((entry) => parentPath(entry.path).toLowerCase() === p)]);
+  };
   if (p === "a:\\" || p === "a:") {
     return includeManaged([
       folder("Archive", "A:\\Archive"),
@@ -845,16 +894,18 @@ function getEntriesForPath(path) {
     ]);
   }
   if (p === "a:\\atlas" || p.startsWith("a:\\atlas\\")) return includeManaged(atlasEntriesForPath(path, PUBLIC_ATLAS));
-  if (p.includes("archive\\2019")) return includeManaged(packageEntries(["xp", "hated"]));
-  if (p.includes("archive\\2021")) return includeManaged(packageEntries(["xpv2", "new-swag"]));
-  if (p.includes("archive\\2022")) return includeManaged(packageEntries(["central-african-time", "state-of-mind"]));
-  if (p.includes("archive\\2026")) return includeManaged(packageEntries(["noise"]));
-  if (p.endsWith("archive")) {
-    return includeManaged([folder("2019", "A:\\Archive\\2019"), folder("2021", "A:\\Archive\\2021"), folder("2022", "A:\\Archive\\2022"), folder("2026", "A:\\Archive\\2026"), folder("Assets", "A:\\Archive\\Assets")]);
+  if (p === "a:\\archive") {
+    const years = [...new Set([...PROJECTS.map((item) => item.year), ...managedFiles.map((item) => item.path.match(/^A:\\Archive\\(\d{4})/i)?.[1]).filter(Boolean)])].sort();
+    return includeManaged([...years.map((year) => folder(year, `A:\\Archive\\${year}`)), folder("Assets", "A:\\Archive\\Assets"),
+      { name: "START HERE.txt", type: "Text", content: "Welcome to the AWAKEN archive.\n\nOpen a year to explore its releases and files. Open a release to listen, read its notes, browse related images and save it to your Memory Card.\n\nNew material is added by the AWAKEN team. Dates and credits describe the published sources; missing history is never invented." }]);
+  }
+  if (/^a:\\archive\\\d{4}$/.test(p)) {
+    const year = p.split("\\").at(-1);
+    return includeManaged([...packageEntries(PROJECTS.filter((item) => item.year === year).map((item) => item.id)), ...FILES.filter((file) => !file.project && file.path?.toLowerCase().startsWith(`${p}\\`))]);
   }
   if (p.endsWith("packages")) return includeManaged(packageEntries(PROJECTS.map((project) => project.id)));
   if (p.endsWith("programs")) return includeManaged(APPS.filter((app) => app.id !== "trash").map((app) => ({ name: `${app.title}.exe`, type: "App", size: "program", modified: "system", app })));
-  if (p.endsWith("gallery")) return includeManaged(galleryFiles);
+  if (p.endsWith("gallery")) return includeManaged([...galleryFiles, ...FILES.filter((file) => file.type === "Image" && !file.tags.includes("wallpaper"))]);
   if (p.endsWith("community")) return includeManaged([folder("XP", "A:\\Community\\XP"), fileByName("discord.url"), ...SOCIALS.map((link) => ({ name: `${link.title}.url`, type: "Link", size: "external", modified: "live", url: link.url, detail: link.detail }))]);
   if (p.endsWith("community\\xp")) return includeManaged([fileByName("MIND.exe"), { name: "MIND_ASSISTANT.exe", type: "App", size: "resident", modified: "live", app: { action: () => showMindAssistant({ force: true }) } }, { name: "xp-channel.url", type: "Link", size: "invite", modified: "live", url: LINKS.discord, detail: "Open the real AWAKEN Discord XP channel." }]);
   if (p.endsWith("team")) return includeManaged(runtimeTeamMembers().map((person) => ({ name: person.displayName, type: "Person", size: "profile", modified: "team", person })));
@@ -917,8 +968,9 @@ function openFileViewer(file, message = "") {
 
 function openMediaFile(file) {
   if (!file?.src && !file?.url) { openFileViewer(file, "The media record exists, but no playable source has been published."); return; }
+  if (file.type === "Audio") { openMusic(file); return; }
   const source = file.src || file.url;
-  const { content } = createWindow(file.name || "Media", { wide: true });
+  const { win, content } = createWindow(file.name || "Media", { wide: true });
   const tag = file.type === "Video" ? "video" : "audio";
   const player = document.createElement(tag);
   player.controls = true;
@@ -931,13 +983,14 @@ function openMediaFile(file) {
   fallback.hidden = true;
   player.addEventListener("error", () => { player.hidden = true; fallback.hidden = false; });
   content.append(player, fallback);
+  win.addEventListener("awaken:window-close", () => { player.pause(); player.removeAttribute("src"); player.load(); }, { once: true });
 }
 
 function openAtlasEntity(entity) {
   if (!entity || focusExistingWindow(`atlas:${entity.id}`)) return;
   const graph = atlasGraph(entity.id, PUBLIC_ATLAS);
   const related = graph.related.length
-    ? `<ul>${graph.related.map((item) => `<li>${escapeHtml(item.name)} <small>${escapeHtml(item.entityType)}</small></li>`).join("")}</ul>`
+    ? `<ul>${graph.related.map((item) => `<li><button type="button" data-related="${escapeHtml(item.id)}">${escapeHtml(item.name)}</button> <small>${escapeHtml(item.entityType)}</small></li>`).join("")}</ul>`
     : `<p class="empty-state">No public relationships are available.</p>`;
   const externalUrl = entity.metadata?.officialUrl || entity.metadata?.url;
   const { content } = createWindow(`Atlas - ${entity.name}`, { wide: true, appId: `atlas:${entity.id}` });
@@ -950,6 +1003,7 @@ function openAtlasEntity(entity) {
       ${externalUrl ? `<button type="button" data-atlas-source>Open official source</button>` : ""}
       <h3>Related</h3>${related}
     </section>`;
+  content.querySelectorAll("[data-related]").forEach((button) => button.addEventListener("click", () => openAtlasEntity(PUBLIC_ATLAS.entities.find((item) => item.id === button.dataset.related))));
   content.querySelector("[data-atlas-source]")?.addEventListener("click", () => openNetworkUrl(externalUrl, { title: `${entity.name} official source`, source: "atlas" }));
 }
 
@@ -958,55 +1012,63 @@ function openPackage(id) {
   if (!project) return;
   if (focusExistingWindow(`package:${id}`)) return;
   document.getElementById("path-label").textContent = project.path;
-  const { content } = createWindow(`${project.title} Drive`, { wide: true, appId: `package:${id}` });
+  const { content } = createWindow(`${escapeHtml(project.title)} Drive`, { wide: true, appId: `package:${id}` });
   content.innerHTML = `
     <div class="cards">
       <article class="card">
-        <img src="${project.cover}" alt="${project.title} artwork" />
+        <img src="${escapeHtml(project.cover)}" alt="${escapeHtml(project.title)} artwork" />
         <div class="card-body">
-          <strong>${project.title}</strong>
-          <p>${project.type} / ${project.year}</p>
+          <strong>${escapeHtml(project.title)}</strong>
+          <p>${escapeHtml(project.type)} / ${escapeHtml(project.year)}</p>
           <button type="button" data-open-link>Open Source</button>
           <button type="button" data-save>Save</button>
         </div>
       </article>
       <section>
-        <h2>${project.title}</h2>
-        <p>${project.readme}</p>
+        <h2>${escapeHtml(project.title)}</h2>
+        <p>${escapeHtml(project.readme)}</p>
         ${contributorCreditsMarkup(project.contributors || [])}
         <div class="meta-grid">
-          <div class="meta"><strong>Installed</strong><br>${project.installed}</div>
-          <div class="meta"><strong>Size</strong><br>${project.size}</div>
-          <div class="meta"><strong>Status</strong><br>${project.status}</div>
-          <div class="meta"><strong>Path</strong><br>${project.path}</div>
+          <div class="meta"><strong>Released</strong><br>${escapeHtml(project.installed)}</div>
+          <div class="meta"><strong>Size</strong><br>${escapeHtml(project.size)}</div>
+          <div class="meta"><strong>Archive</strong><br>${escapeHtml(project.status)}</div>
+          <div class="meta"><strong>Path</strong><br>${escapeHtml(project.path)}</div>
         </div>
-        <div class="health" aria-label="Drive health"><span style="width:${project.health}%"></span></div>
+        ${project.tracks.length ? `<h3>Selected tracks</h3><ol>${project.tracks.map((track) => `<li>${escapeHtml(track)}</li>`).join("")}</ol><p class="archive-note">Open the official player for the complete tracklist.</p><button type="button" data-listen>Listen to ${escapeHtml(project.title)}</button>` : ""}
+        ${project.atlasId ? '<button type="button" data-credits>Connections &amp; sources</button>' : ''}
+        <div data-related-images></div>
         <h3>Contents</h3>
         <div class="explorer-list">
-          <button type="button" class="file-row" data-package-action="readme"><span>TXT</span><span>README.txt</span><span>Text</span><span>--</span><span>${project.year}</span></button>
-          <button type="button" class="file-row" data-package-action="artwork"><span>IMG</span><span>Artwork</span><span>Image</span><span>--</span><span>${project.year}</span></button>
-          <button type="button" class="file-row" data-package-action="music"><span>URL</span><span>Music</span><span>Link</span><span>${project.size}</span><span>${project.year}</span></button>
+          <button type="button" class="file-row" data-package-action="readme"><span>TXT</span><span>README.txt</span><span>Text</span><span>--</span><span>${escapeHtml(project.year)}</span></button>
+          <button type="button" class="file-row" data-package-action="artwork"><span>IMG</span><span>Artwork</span><span>Image</span><span>--</span><span>${escapeHtml(project.year)}</span></button>
+          <button type="button" class="file-row" data-package-action="music"><span>URL</span><span>Music</span><span>Link</span><span>${escapeHtml(project.size)}</span><span>${escapeHtml(project.year)}</span></button>
         </div>
       </section>
     </div>
   `;
-  content.querySelector("[data-open-link]").addEventListener("click", () => openNetworkUrl(project.url, { title: `${project.title} source`, source: "package" }));
+  content.querySelector("[data-listen]")?.addEventListener("click", () => openMusic({ release: project }));
+  content.querySelector("[data-credits]")?.addEventListener("click", () => openAtlasEntity(PUBLIC_ATLAS.entities.find((item) => item.id === project.atlasId)));
+  const images = [...FILES, ...managedFiles].filter((file) => file.type === "Image" && file.path?.toLowerCase().startsWith(project.path.toLowerCase() + "\\"));
+  for (const file of images) { const button = document.createElement("button"); button.type = "button"; button.textContent = file.name; button.addEventListener("click", () => openImage(file, images)); content.querySelector("[data-related-images]").appendChild(button); }
+  content.querySelector("[data-open-link]").addEventListener("click", () => openNetworkUrl(project.url, { title: `${escapeHtml(project.title)} source`, source: "package" }));
   content.querySelector("[data-save]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: project.id, type: "archive", title: project.title, path: project.path, url: project.url }));
   content.querySelector(".card img")?.addEventListener("error", (event) => { event.currentTarget.hidden = true; });
-  content.querySelector("[data-package-action='readme']").addEventListener("click", () => openText(`${project.title} README`, project.readme));
-  content.querySelector("[data-package-action='artwork']").addEventListener("click", () => openImage({ name: `${project.title} artwork`, src: project.cover, path: project.path }));
-  content.querySelector("[data-package-action='music']").addEventListener("click", () => openNetworkUrl(project.url, { title: `${project.title} music`, source: "package-music" }));
+  content.querySelector("[data-package-action='readme']").addEventListener("click", () => openText(`${escapeHtml(project.title)} README`, project.readme));
+  content.querySelector("[data-package-action='artwork']").addEventListener("click", () => openImage({ name: `${escapeHtml(project.title)} artwork`, src: project.cover, path: project.path }));
+  content.querySelector("[data-package-action='music']").addEventListener("click", () => openNetworkUrl(project.url, { title: `${escapeHtml(project.title)} music`, source: "package-music" }));
   content.querySelectorAll("[data-contributor]").forEach((button) => button.addEventListener("click", () => openTeamProfile(TEAM_MEMBERS.find((person) => person.slug === button.dataset.contributor))));
 }
 
-function openMusic() {
+function openMusic(initialTrack = null) {
   if (!managedFeatureEnabled(managedContent, "upgradedMediaPlayerEnabled", getRuntimeConfig().features.upgraded_media_player_enabled)) { openText("AWAKEN Media Player", "Media Player is disabled by runtime configuration."); return; }
-  if (focusExistingWindow("media-player")) return;
+  if (focusExistingWindow("media-player")) {
+    if (initialTrack) document.querySelector('.window[data-app-id="media-player"]').dispatchEvent(new CustomEvent("awaken:play-file", { detail: initialTrack }));
+    return;
+  }
   const ui = interfaceContent();
   const { win, content } = createWindow(ui.mediaPlayerName || "AWAKEN Media Player", { wide: true, className: "media-window", appId: "media-player" });
-  const publicReleaseSlugs = new Set(PUBLIC_ATLAS.entities.filter((entity) => entity.entityType === "release").map((entity) => entity.slug));
-  const atlasProjects = PROJECTS.filter((project) => publicReleaseSlugs.has(project.id));
-  const cleanup = renderMediaPlayer(content, { projects: atlasProjects, links: LINKS, audio: document.getElementById("audio-snippet"), media: managedContent.media, interfaceText: ui });
+  const atlasProjects = PROJECTS.filter((project) => project.atlasId);
+  const cleanup = renderMediaPlayer(content, { projects: atlasProjects, links: LINKS, audio: document.getElementById("audio-snippet"), media: managedContent.media, interfaceText: ui, initialTrack });
   win.addEventListener("awaken:window-close", cleanup, { once: true });
 }
 
@@ -1274,21 +1336,38 @@ function openPortal(title, url, detail) {
   content.querySelector("[data-save-link]").addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: url, type: "link", title, url }));
 }
 
-function openImage(file) {
-  const { content } = createWindow(file.name, { wide: true });
-  const media = normalizeMedia({ id: file.path, src: file.src || file.url, sourceUrl: file.sourceUrl, caption: file.caption, credit: file.credit });
-  if (media.missing) { content.innerHTML = `<div class="empty-state">Image unavailable.</div>`; return; }
-  const imageSource = media.fullSource.startsWith("assets/") ? new URL(media.fullSource, document.baseURI).href : media.fullSource;
-  content.innerHTML = `<div class="image-viewer-stage"><div class="image-viewer-loading" data-image-state>Loading ${escapeHtml(file.name)}...</div><img class="viewer-image" alt="${escapeHtml(file.name)}" /></div><p>${escapeHtml(file.path || media.sourceUrl || imageSource)}</p><button type="button" data-save-image>Save image</button>`;
-  const image = content.querySelector("img");
-  const state = content.querySelector("[data-image-state]");
-  image.loading = "eager";
-  image.decoding = "async";
-  image.addEventListener("load", () => { image.hidden = false; state.remove(); }, { once: true });
-  image.addEventListener("error", () => { image.hidden = true; state.textContent = "Image could not be displayed. Its source is still available."; state.className = "empty-state"; }, { once: true });
-  image.hidden = true;
-  image.src = imageSource;
-  content.querySelector("[data-save-image]")?.addEventListener("click", (event) => saveExplicit(event.currentTarget, { id: media.id, type: "image", title: file.name, src: media.fullSource }));
+function openImage(file, collection = null) {
+  const candidates = collection || [...FILES, ...managedFiles].filter((item) => item.type === "Image" && parentPath(item.path || "") === parentPath(file.path || ""));
+  const images = candidates.some((item) => (item.src || item.url) === (file.src || file.url)) ? candidates : [file];
+  let index = Math.max(0, images.findIndex((item) => (item.src || item.url) === (file.src || file.url)));
+  const { win, content } = createWindow("AWAKEN Picture Viewer", { wide: true });
+  content.tabIndex = 0;
+  content.innerHTML = `<div class="picture-toolbar"><button type="button" data-prev-image>← Previous</button><span data-image-count></span><button type="button" data-next-image>Next →</button><button type="button" data-save-image>Save to Memory Card</button></div><div class="image-viewer-stage"><p data-image-state role="status"></p><img class="viewer-image" alt=""></div><h2 data-image-name></h2><p data-image-caption></p>`;
+  const image = content.querySelector('img');
+  const state = content.querySelector('[data-image-state]');
+  const render = () => {
+    const item = images[index];
+    const media = normalizeMedia({id:item.path || item.id, src:item.src || item.url});
+    state.hidden = false; state.textContent = media.missing ? 'Image unavailable.' : 'Loading image…'; image.hidden = true;
+    image.alt = item.caption || item.name;
+    content.querySelector('[data-image-count]').textContent = `${index + 1} / ${images.length}`;
+    content.querySelector('[data-image-name]').textContent = item.name;
+    content.querySelector('[data-image-caption]').textContent = [item.caption || item.detail, item.credit, /^\d{4}/.test(item.modified || '') ? item.modified : ''].filter(Boolean).join(' · ');
+    for (const button of content.querySelectorAll('[data-prev-image],[data-next-image]')) button.disabled = images.length < 2;
+    content.querySelector('[data-save-image]').textContent = 'Save to Memory Card';
+    if (!media.missing) image.src = media.fullSource;
+  };
+  const step = (delta) => { index = (index + delta + images.length) % images.length; render(); };
+  image.addEventListener('load', () => { state.hidden = true; image.hidden = false; });
+  image.addEventListener('error', () => { state.hidden = false; state.textContent = 'Image could not load. Try the next picture.'; image.hidden = true; });
+  content.querySelector('[data-prev-image]').addEventListener('click', () => step(-1));
+  content.querySelector('[data-next-image]').addEventListener('click', () => step(1));
+  content.querySelector('[data-save-image]').addEventListener('click', (event) => { const item = images[index]; saveExplicit(event.currentTarget, {id:item.path || item.id || item.src, type:'image', title:item.name, src:item.src || item.url}); });
+  win.addEventListener('keydown', (event) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); step(event.key === 'ArrowLeft' ? -1 : 1); } });
+  let touchStart;
+  image.addEventListener('touchstart', (event) => { touchStart = event.touches[0]?.clientX; }, {passive:true});
+  image.addEventListener('touchend', (event) => { const delta = event.changedTouches[0]?.clientX - touchStart; if (Math.abs(delta) > 55) step(delta < 0 ? 1 : -1); }, {passive:true});
+  render(); content.focus({preventScroll:true});
 }
 
 function openTeamProfile(person) {
@@ -1443,6 +1522,13 @@ function recoverToMemoryCard(source = "system") {
   }
 }
 
+function mayInterrupt() {
+  return bootFinished && !document.hidden && lastDesktopInteraction > 0 && Date.now() - lastDesktopInteraction >= 30_000
+    && localStorage.getItem("awaken.adsDisabled") !== "true" && sessionStorage.getItem("awaken.adsDisabled") !== "true"
+    && !document.querySelector(".window:not([hidden]), .gallery-dirty, .transmission, .admin-shell, [data-uploading='true']")
+    && !document.activeElement?.matches("input, textarea, select, [contenteditable='true']");
+}
+
 function scheduleAds() {
   clearInterval(adTimer);
   clearTimeout(adInitialTimer);
@@ -1450,7 +1536,7 @@ function scheduleAds() {
   if (!managedFeatureEnabled(managedContent, "adsRuntimeEnabled", config.features.ads_runtime_enabled)) return;
   const attempt = () => {
     awakenBus.emit(AWAKEN_EVENTS.ADS_SCHEDULE);
-    if (document.hidden || !lastDesktopInteraction || Date.now() - lastDesktopInteraction < 30_000) return;
+    if (!mayInterrupt()) return;
     const activeElement = document.activeElement;
     const blocked = Boolean(document.querySelector(".gallery-dirty") || activeElement?.matches("input, textarea, [contenteditable='true']") || document.querySelector(".admin-shell, [data-uploading='true']"));
     const ad = selectWeightedAd(runtimeAdDefinitions(), { now: Date.now(), sessionStartedAt, context: "desktop", records: adRecords, blocked, hidden: document.hidden, openCount: document.querySelectorAll(".window[data-ad-id]").length, maximumOpen: 2, disabled: sessionStorage.getItem("awaken.adsDisabled") === "true" });
@@ -1484,6 +1570,7 @@ function scheduleMindAssistant(delay = 50_000) {
 
 function showMindAssistant({ force = false } = {}) {
   const assistant = document.getElementById("mind-assistant");
+  if (!force && !mayInterrupt()) { scheduleMindAssistant(30_000); return; }
   const desktopBusy = matchMedia("(max-width: 760px)").matches || Boolean(document.querySelector(".window:not([hidden])"));
   if (!assistant || document.hidden || desktopBusy || document.querySelector(".gallery-dirty")) {
     if (assistant) assistant.hidden = true;
@@ -1604,6 +1691,7 @@ function scheduleTransmissions() {
 }
 
 function showTransmission(item) {
+  if (!new URLSearchParams(location.search).has("previewTransmissions") && !mayInterrupt()) { setTimeout(() => showTransmission(item), 30_000); return; }
   if (sessionDisplays[item.id] || document.querySelector(".gallery-window, .gallery-dirty")) return;
   sessionDisplays[item.id] = 1;
   awakenBus.emit(AWAKEN_EVENTS.TRANSMISSION_SHOWN, { id: item.id, destinationUrl: item.destinationUrl });
@@ -1655,11 +1743,11 @@ function openSettings() {
     <div class="settings-sections">
       <section><h2>Appearance</h2><div class="wallpaper-grid">
         ${WALLPAPERS.map((wallpaper) => `<button type="button" data-wallpaper="${wallpaper.id}" aria-pressed="${String(selectedWallpaper === wallpaper.id)}"><span style="--swatch:${wallpaper.color};--swatch-image:${wallpaper.image ? `url('${wallpaper.image}')` : "none"}"></span>${wallpaper.title}</button>`).join("")}
-      </div><div class="settings-row"><button type="button" data-default-wallpaper>Restore AWAKEN Default</button><label><input type="checkbox" data-reduced-motion ${sessionStorage.getItem("awaken.reducedMotion") === "true" ? "checked" : ""}> Reduced motion</label><label><input type="checkbox" data-sound ${sessionStorage.getItem("awaken.sound") !== "false" ? "checked" : ""}> System sounds</label></div></section>
+      </div><div class="settings-row"><button type="button" data-default-wallpaper>Restore AWAKEN Default</button><label><input type="checkbox" data-reduced-motion ${sessionStorage.getItem("awaken.reducedMotion") === "true" ? "checked" : ""}> Reduced motion</label><label><input type="checkbox" data-sound ${sessionStorage.getItem("awaken.sound") === "true" ? "checked" : ""}> System sounds</label></div></section>
       <section><h2>Desktop</h2><div class="settings-row"><label><input type="checkbox" data-show-icons ${sessionStorage.getItem("awaken.showIcons") !== "false" ? "checked" : ""}> Show desktop icons</label><button type="button" data-reset-icons>Refresh icon arrangement</button><button type="button" data-reset-boot>Show boot next visit</button></div></section>
       <section><h2>System</h2><dl class="system-info">${Object.entries(info).map(([key, value]) => `<div><dt>${titleCase(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join("")}</dl></section>
       <section><h2>Storage</h2><p>${memoryCard.items.length} saved Memory Card item${memoryCard.items.length === 1 ? "" : "s"}.</p><div class="settings-row"><button type="button" data-clear-preferences>Clear local preferences</button><button type="button" data-clear-memory>Clear Memory Card</button></div></section>
-      <section><h2>Runtime</h2><div class="settings-row"><label><input type="checkbox" data-ads-enabled ${sessionStorage.getItem("awaken.adsDisabled") !== "true" ? "checked" : ""}> Allow occasional NETWORK notices</label></div></section>
+      <section><h2>Runtime</h2><div class="settings-row"><label><input type="checkbox" data-ads-enabled ${localStorage.getItem("awaken.adsDisabled") !== "true" && sessionStorage.getItem("awaken.adsDisabled") !== "true" ? "checked" : ""}> Allow occasional NETWORK notices</label></div></section>
       <section><h2>About</h2><p>AWAKEN NETWORK OS v4.2 connects the AWAKEN archive, community, music, tools, and saved references.</p><div class="settings-row"><button type="button" data-about-url="${LINKS.website}">Website</button><button type="button" data-about-url="${LINKS.youtube}">YouTube</button><button type="button" data-about-url="${LINKS.spotify}">Spotify</button></div></section>
     </div>
   `;
@@ -1673,7 +1761,7 @@ function openSettings() {
   content.querySelector("[data-reduced-motion]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.reducedMotion", String(event.target.checked)); applyPreferences(); });
   content.querySelector("[data-sound]").addEventListener("change", (event) => sessionStorage.setItem("awaken.sound", String(event.target.checked)));
   content.querySelector("[data-show-icons]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.showIcons", String(event.target.checked)); applyPreferences(); });
-  content.querySelector("[data-ads-enabled]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); if (event.target.checked) scheduleAds(); });
+  content.querySelector("[data-ads-enabled]").addEventListener("change", (event) => { sessionStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); localStorage.setItem("awaken.adsDisabled", String(!event.target.checked)); if (event.target.checked) scheduleAds(); });
   content.querySelector("[data-reset-icons]").addEventListener("click", buildDesktop);
   content.querySelector("[data-reset-boot]").addEventListener("click", () => sessionStorage.removeItem("awakenBooted"));
   content.querySelector("[data-clear-preferences]").addEventListener("click", () => {
@@ -1851,6 +1939,9 @@ function searchAll(term) {
       results.push({ title: site.title, kind: "NETWORK Site", icon: "WWW", action: () => openNetworkSite(site.id) });
     }
   });
+  PUBLIC_ATLAS.entities.forEach((entity) => {
+    if (`${entity.name} ${entity.summary} ${(entity.tags || []).join(" ")}`.toLowerCase().includes(q)) results.push({ title: entity.name, kind: entity.entityType, icon: "AT", action: () => openAtlasEntity(entity) });
+  });
   SOCIALS.forEach((item) => {
     if (`${item.title} ${item.detail} ${item.url}`.toLowerCase().includes(q)) {
       results.push({ title: item.title, kind: "Network Link", icon: "URL", action: () => openPortal(item.title, item.url, item.detail) });
@@ -1861,7 +1952,7 @@ function searchAll(term) {
 
 function iconSource(manifest) {
   const remote = manifest.remoteIconUrl;
-  if (remote && validRemoteImageUrl(remote)) return remote;
+  if (remote && validRemoteImageUrl(remote) && !/^https:\/\/i\.ibb\.co\/[^/]+\/image\.webp$/i.test(remote)) return remote;
   return manifest.imageSource || "";
 }
 
@@ -1926,7 +2017,7 @@ function contextActions(type, target) {
   if (type === "file") return [
     { label: "Open", action: () => openEntry(target) },
     ...(target.type === "Image" || target.type === "Gallery Image" ? [{ label: "Open in AWAKEN Paint", action: () => openAwakenPaint(target) }] : []),
-    ...(target.type === "Audio" ? [{ label: "Play in AWAKEN Media Player", action: openMusic }] : []),
+    ...(target.type === "Audio" ? [{ label: "Play in AWAKEN Media Player", action: () => openMusic(target) }] : []),
     { label: "Save to Memory Card", action: () => saveExplicit(null, { id: target.id || target.path, type: "file", title: target.name, path: target.path, body: target.content || target.detail, url: target.url, src: target.src }) },
     { label: "Properties", action: () => openText(`${target.name} Properties`, `${target.path || target.name}\nType: ${target.type}\nModified: ${target.modified || "unknown"}`) }
   ];

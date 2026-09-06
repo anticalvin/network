@@ -124,7 +124,7 @@ function normalizeImageUrl(value) {
   if (!safeHttpUrl(value)) return null;
   const url = new URL(value);
   if (normalizeHostname(url.hostname) === "ibb.co" && /^\/[a-z0-9]+\/?$/i.test(url.pathname)) {
-    return `https://i.ibb.co${url.pathname.replace(/\/$/, "")}/image.webp`;
+    return null;
   }
   return url.href;
 }

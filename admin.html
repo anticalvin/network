@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow" />
   <link rel="icon" href="assets/img/smiley-black.png" />
   <title>AWAKEN Content Admin</title>
-  <link rel="stylesheet" href="admin/admin.css?v=runtime-13" />
+  <link rel="stylesheet" href="admin/admin.css?v=experience-1" />
 </head>
 <body>
   <header class="admin-header">
@@ -19,7 +19,8 @@
       <button id="admin-email-setup" type="button">Email setup link</button>
       <button id="admin-publish" type="button" disabled>Sign in to publish</button>
     </form>
-    <a href="./index.html">View desktop</a>
+    <a href="./index.html?skipBoot=1" target="_blank" rel="noopener">View live edition</a>
+    <button id="preview-draft" type="button">Preview device draft</button>
   </header>
   <section id="admin-password-panel" class="admin-password-panel" hidden>
     <div>
@@ -31,6 +32,10 @@
       <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required placeholder="Confirm new password" aria-label="Confirm new admin password" />
       <button type="submit">Set admin password</button>
     </form>
+  </section>
+  <section class="editor-workflow" aria-label="Publishing tools">
+    <div><strong>Add to the archive</strong><button type="button" data-quick-create="photo">Add photo</button><button type="button" data-quick-create="story">Add story</button><button type="button" data-quick-create="release">Add release</button></div>
+    <details><summary>Publication history &amp; recovery</summary><p>Edits stay on this device until you publish. Reloading live backs up the current device draft. Restoring an edition opens a draft for review.</p><button type="button" id="reload-live">Load latest live edition</button><button type="button" id="restore-device-draft">Restore previous device draft</button><button type="button" id="load-history">Load publication history</button><div id="publication-history"></div></details>
   </section>
   <main class="admin-shell">
     <nav class="admin-tabs" aria-label="Content sections">
@@ -67,6 +72,6 @@
   <div id="admin-status" class="admin-status" role="status" hidden></div>
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
-  <script type="module" src="admin/admin.js?v=runtime-14"></script>
+  <script type="module" src="admin/admin.js?v=experience-1"></script>
 </body>
 </html>

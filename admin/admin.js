@@ -1,9 +1,9 @@
 import { defaultContent } from "../src/content/default-content.js?v=runtime-13";
-import { ContentRepository } from "../src/data/content-repository.js?v=runtime-13";
+import { ContentRepository } from "../src/data/content-repository.js?v=experience-1";
 import { safeUrl } from "../src/domain/media.js?v=runtime-9";
 import { createSupabaseRestClient } from "../src/data/supabase-client.js";
 import { TEAM_MEMBERS } from "../src/content/contributors.js?v=runtime-9";
-import { iconManifest } from "../src/content/icon-manifest.js?v=runtime-9";
+import { iconManifest } from "../src/content/icon-manifest.js?v=experience-1";
 import { atlasSeed } from "../src/content/atlas-seed.js";
 import { ATLAS_ENTITY_TYPES, ATLAS_PUBLICATION_STATES, ATLAS_VERIFICATION_STATES, isAtlasEntityPublic, isAtlasRelationshipPublic } from "../src/domain/atlas.js";
 import { getRuntimeConfig } from "../src/system/runtime-state.js";
@@ -15,7 +15,8 @@ const callbackQuery = new URLSearchParams(location.search);
 const callbackHash = new URLSearchParams(location.hash.slice(1));
 let authCallbackType = callbackQuery.get("type") || callbackHash.get("type") || (callbackQuery.has("code") ? "recovery" : "");
 const authClient = globalThis.supabase?.createClient?.(runtimeConfig.supabaseUrl, runtimeConfig.supabasePublishableKey || runtimeConfig.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-const initialContent = await repository.getPublicContent();
+const initialContent = await repository.getPublicContent({ includeDraft: true });
+let baseRevision = initialContent.revision || null;
 let content = initialContent.content;
 let section = "transmissions";
 let selectedIndex = null;
@@ -142,6 +143,7 @@ publishButton.addEventListener("click", async () => {
   publishButton.textContent = "Publishing...";
   try {
     if (selectedIndex !== null && section !== "gallerySubmissions") {
+      if (!document.getElementById("editor-form").reportValidity()) return;
       const result = captureEditor(document.getElementById("editor-form"));
       if (!result.ok) return;
       content[section][selectedIndex] = result.entry;
@@ -150,14 +152,26 @@ publishButton.addEventListener("click", async () => {
     const payload = structuredClone(content);
     delete payload.gallerySubmissions;
     payload.updatedAt = new Date().toISOString();
-    const { data: receipt, error } = await authClient.from("network_content_snapshots").upsert({
-      id: "live",
-      payload,
-      published: true,
-      published_at: payload.updatedAt,
-      updated_by: sessionData.session.user.id
-    }).select("published_at,updated_at").single();
-    if (error) { showStatus(error.message, true); return; }
+    const { data: current, error: readError } = await authClient.from("network_content_snapshots").select("payload,updated_at,published_at").eq("id", "live").maybeSingle();
+    if (readError) throw readError;
+    if ((current?.updated_at || null) !== baseRevision) {
+      showStatus("The live edition changed since this draft began. Open View live edition and compare before reloading the editor; your device draft is preserved.", true);
+      return;
+    }
+    if (current) {
+      const { error: historyError } = await authClient.from("network_content_snapshots").insert({id: `revision-${crypto.randomUUID()}`, payload: current.payload, published: false, published_at: current.published_at, updated_by: sessionData.session.user.id});
+      if (historyError) throw historyError;
+    }
+    const update = { payload, published: true, published_at: payload.updatedAt, updated_by: sessionData.session.user.id };
+    const write = current
+      ? authClient.from("network_content_snapshots").update(update).eq("id", "live").eq("updated_at", baseRevision)
+      : authClient.from("network_content_snapshots").insert({id: "live", ...update});
+    const { data: receipts, error } = await write.select("published_at,updated_at");
+    if (error) throw error;
+    if (!receipts?.length) throw new Error("Another editor published first. Your draft is preserved; reload the live edition before publishing again.");
+    const receipt = receipts[0];
+    baseRevision = receipt.updated_at;
+    localStorage.setItem("awaken.live-revision", JSON.stringify(baseRevision));
     repository.clearPublishedState();
     content = payload;
     editorDirty = false;
@@ -208,6 +222,7 @@ if (authClient) {
 }
 
 document.querySelectorAll("[data-section]").forEach((button) => button.addEventListener("click", async () => {
+  if (!preserveEditor()) return;
   section = button.dataset.section;
   selectedIndex = null;
   editorDirty = false;
@@ -230,13 +245,14 @@ function render() {
     button.type = "button";
     button.className = `entry${selectedIndex === index ? " active" : ""}`;
     button.innerHTML = `<strong>${escapeHtml(entry.publicTitle || entry.displayName || entry.productName || entry.name || entry.label || entry.title || entry.predicate || "Untitled")}</strong><small>${escapeHtml(entry.status || entry.moderationStatus || entry.publicationState || entry.sourceType || entry.slug || entry.applicationId || entry.url || entry.color || (section === "interfaceText" ? "live interface" : "draft"))}</small>`;
-    button.addEventListener("click", () => { selectedIndex = index; editorDirty = false; render(); });
+    button.addEventListener("click", () => { if (!preserveEditor()) return; selectedIndex = index; editorDirty = false; render(); });
     list.appendChild(button);
   });
   renderEditor();
 }
 
 function createEntry(kind = "entry") {
+  if (!preserveEditor()) return;
   const id = `draft-${Date.now()}`;
   const base = section === "transmissions"
     ? { id, status: "draft", priority: 0, mobileEligible: true, desktopEligible: true, frequency: { scope: "browser", maxDisplays: 1 }, routes: ["desktop"], dismissal: "browser" }
@@ -287,7 +303,7 @@ function renderEditor() {
 async function saveForm(event) {
   event.preventDefault();
   const result = captureEditor(event.currentTarget);
-  if (!result.ok) { renderEditor(); return; }
+  if (!result.ok) return;
   const entry = result.entry;
   content[section][selectedIndex] = entry;
   if (section === "gallerySubmissions") {
@@ -329,6 +345,22 @@ function captureEditor(form) {
   if (urlFields.some(([key]) => entry[key] && !safeUrl(entry[key]))) { showStatus("Use a valid http or https URL.", true); return { ok: false }; }
   if (section === "icons" && entry.remoteIconUrl && entry.destinationUrl === entry.remoteIconUrl) entry.destinationUrl = null;
   return { ok: true, entry };
+}
+
+function preserveEditor() {
+  if (!editorDirty || selectedIndex === null) return true;
+  if (section === "gallerySubmissions") { showStatus("Save the moderation decision before switching records.", true); return false; }
+  const form = document.getElementById("editor-form");
+  if (!form.reportValidity()) return false;
+  const result = captureEditor(form);
+  if (!result.ok) return false;
+  try {
+    content[section][selectedIndex] = result.entry;
+    content = repository.saveLocalDraft(content);
+    editorDirty = false;
+    setPublicationState("Device draft saved / not published", "draft");
+    return true;
+  } catch { showStatus("The device draft could not be saved. Your edits are still open.", true); return false; }
 }
 
 function markEditorDirty() {
@@ -554,3 +586,51 @@ function titleCase(value) { return value.replace(/([a-z])([A-Z])/g, "$1 $2").rep
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char])); }
 
 render();
+
+document.getElementById('preview-draft').addEventListener('click', () => {
+  if (preserveEditor()) { content = repository.saveLocalDraft(content); window.open('./?skipBoot=1&adminPreview=1', '_blank', 'noopener,noreferrer'); }
+});
+document.getElementById('reload-live').addEventListener('click', async () => {
+  if (!preserveEditor()) return;
+  const live = await repository.getPublicContent();
+  if (live.source !== 'remote') { showStatus('The live edition could not be reached. Your draft remains available.', true); return; }
+  // Preserve the old device draft as a recoverable local checkpoint.
+  try { localStorage.setItem('awaken.previous-device-draft', JSON.stringify(content)); } catch { showStatus('Could not back up this draft. Reload cancelled.', true); return; }
+  repository.clearLocalDraft();
+  content = live.content; baseRevision = live.revision; selectedIndex = null; editorDirty = false;
+  setPublicationState('Live edition loaded / previous device draft backed up', 'live'); render();
+});
+document.getElementById('restore-device-draft').addEventListener('click', () => {
+  if (!preserveEditor()) return;
+  const previous = repository.read('awaken.previous-device-draft');
+  if (!previous) { showStatus('No previous device draft is available.'); return; }
+  content = repository.saveLocalDraft(previous); selectedIndex = null; render(); setPublicationState('Previous device draft restored / not published', 'draft');
+});
+document.getElementById('load-history').addEventListener('click', async () => {
+  if (!authClient) return;
+  const {data: sessionData} = await authClient.auth.getSession();
+  if (!hasAdminRole(sessionData.session)) { showStatus('Sign in as an administrator to view publication history.', true); return; }
+  const {data: rows, error} = await authClient.from('network_content_snapshots').select('id,published_at,created_at').eq('published', false).like('id', 'revision-%').order('created_at', {ascending:false}).limit(20);
+  if (error) { showStatus(error.message, true); return; }
+  const list = document.getElementById('publication-history'); list.innerHTML = '';
+  if (!rows.length) list.textContent = 'Restore points will appear after the next publication.';
+  for (const row of rows) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = `Preview edition ${formatDate(row.published_at || row.created_at)}`;
+    button.addEventListener('click', async () => {
+      if (!preserveEditor()) return;
+      const {data, error} = await authClient.from('network_content_snapshots').select('payload').eq('id', row.id).single();
+      if (error) { showStatus(error.message, true); return; }
+      content = repository.saveLocalDraft(data.payload); selectedIndex = null; render(); setPublicationState('Historical edition in device preview / publish to restore', 'draft');
+    }); list.appendChild(button);
+  }
+});
+document.querySelectorAll('[data-quick-create]').forEach((button) => button.addEventListener('click', () => {
+  if (!preserveEditor()) return;
+  const kind = button.dataset.quickCreate;
+  section = kind === 'release' ? 'atlasEntities' : 'filesystem'; selectedIndex = null;
+  createEntry(kind === 'release' ? 'entry' : 'file');
+  const entry = content[section][0];
+  if (kind === 'release') Object.assign(entry, {entityType:'release', name:'New release', metadata:{releaseDate:'', releaseType:'EP', artworkUrl:'', officialUrl:'', tracks:[]}});
+  else Object.assign(entry, {name: kind === 'photo' ? 'New photo' : 'New story.txt', nodeType: kind === 'photo' ? 'image' : 'document', path:`A:\\Archive\\${new Date().getFullYear()}\\${kind === 'photo' ? 'Photos\\New photo' : 'Stories\\New story.txt'}`, status:'draft'});
+  render(); markEditorDirty();
+}));

@@ -30,7 +30,7 @@ export function renderMindApp(container, { repository, inviteUrl, openUrl = open
     const previousHeight = log.scrollHeight;
     const previousTop = log.scrollTop;
     const visible = messages.filter(isVisibleMessage).sort(compareMessages);
-    log.innerHTML = visible.map(messageMarkup).join("") || `<div class="empty-state">No messages have been received.</div>`;
+    log.innerHTML = visible.map(messageMarkup).join("") || `<div class="empty-state">No public messages have been shared yet. Open Discord to join the conversation.</div>`;
     if (preserveScroll) log.scrollTop = previousTop + log.scrollHeight - previousHeight;
     else log.scrollTop = log.scrollHeight;
   };
@@ -47,12 +47,14 @@ export function renderMindApp(container, { repository, inviteUrl, openUrl = open
     if (!messages.length) log.innerHTML = `<div class="empty-state">Loading messages...</div>`;
     try {
       const rows = await repository.getMany({ limit: PAGE_SIZE, before });
+      if (disposed) return;
       messages = before ? mergeMindMessages(messages, rows) : mergeMindMessages(reconcile ? messages : [], rows);
-      state.textContent = navigator.onLine ? "Live" : "Offline";
+      state.textContent = navigator.onLine ? "Updated just now" : "Offline";
       setNotice(navigator.onLine ? "" : "Connection unavailable. Showing the latest received messages.");
       older.hidden = rows.length < PAGE_SIZE;
       render({ preserveScroll: Boolean(before) });
     } catch (error) {
+      if (disposed) return;
       state.textContent = navigator.onLine ? "Unable to connect" : "Offline";
       setNotice("Unable to load MIND. Check the connection and try again.");
       if (!messages.length) log.innerHTML = `<div class="empty-state">Unable to load messages.</div>`;
@@ -93,10 +95,12 @@ export function renderMindApp(container, { repository, inviteUrl, openUrl = open
   document.addEventListener("visibilitychange", reconcile);
   window.addEventListener("online", updateNetworkState);
   window.addEventListener("offline", updateNetworkState);
+  const refreshTimer = setInterval(reconcile, 60_000);
   void load();
 
   return () => {
     disposed = true;
+    clearInterval(refreshTimer);
     unbindNetworkLinks();
     unsubscribe();
     document.removeEventListener("visibilitychange", reconcile);

@@ -11,7 +11,7 @@ import { createSupabaseRestClient } from "./src/data/supabase-client.js";
 import { CommunityRepository } from "./src/data/community-repository.js";
 import { SupabaseCommunityAdapter } from "./src/data/adapters/supabase-community-adapter.js";
 import { renderMindApp } from "./src/apps/mind/mind-app.js";
-import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-13";
+import { renderMediaPlayer } from "./src/apps/media-player/media-player.js?v=runtime-14";
 import { renderGalleryStudio } from "./src/apps/gallery-studio/gallery-studio.js";
 import { DEFAULT_ADS, recordAdDisplay, selectWeightedAd } from "./src/domain/ads.js";
 import { recoverFragments, RECOVERY_FRAGMENTS } from "./src/domain/recovery.js";
@@ -252,6 +252,11 @@ let networkSites = [];
 let adRecords = safeJson(sessionStorage.getItem("awaken.adRecords")) || {};
 const sessionStartedAt = Date.now();
 let adTimer = 0;
+let adInitialTimer = 0;
+let lastDesktopInteraction = 0;
+for (const type of ["pointerdown", "keydown"]) document.addEventListener(type, (event) => {
+  if (event.isTrusted && event.target.closest?.("#os-container") && !document.documentElement.classList.contains("entry-required")) lastDesktopInteraction = Date.now();
+}, { passive: true });
 let intrusionTimer = 0;
 let mindAssistantTimer = 0;
 let lastMindPromptId = "";
@@ -615,6 +620,7 @@ function createWindow(title, options = {}) {
     toggleMaximize(win);
   });
   win.addEventListener("pointerdown", () => makeActive(win));
+  win.addEventListener("focusin", () => { if (!win.classList.contains("active")) makeActive(win); });
   win.addEventListener("contextmenu", (event) => {
     if (event.target.closest("input, textarea, [contenteditable='true']")) return;
     showContextMenu(event, "window", win);
@@ -671,6 +677,11 @@ function toggleMaximize(win) {
     win.dataset.maximized = "true";
     Object.assign(win.style, { left: "0px", top: "0px", width: "100%", height: "100%" });
   }
+  const maximize = win.querySelector(".maximize");
+  const action = win.dataset.maximized === "true" ? "Restore" : "Maximize";
+  maximize.title = action;
+  maximize.setAttribute("aria-label", `${action} ${win.querySelector(".window-title").textContent}`);
+  maximize.textContent = action === "Restore" ? "❐" : "□";
   makeActive(win);
 }
 
@@ -680,24 +691,28 @@ function makeDraggable(win, handle) {
   let left = 0;
   let top = 0;
   handle.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("button") || window.matchMedia("(max-width: 760px)").matches) return;
+    if (win.dataset.maximized === "true" || event.target.closest("button") || window.matchMedia("(max-width: 760px)").matches) return;
     startX = event.clientX;
     startY = event.clientY;
     const rect = win.getBoundingClientRect();
-    left = rect.left;
-    top = rect.top;
+    const area = workArea.getBoundingClientRect();
+    left = rect.left - area.left;
+    top = rect.top - area.top;
     handle.setPointerCapture(event.pointerId);
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", stop, { once: true });
+    handle.addEventListener("pointercancel", stop, { once: true });
   });
 
   function move(event) {
-    win.style.left = `${Math.max(0, left + event.clientX - startX)}px`;
-    win.style.top = `${Math.max(0, top + event.clientY - startY)}px`;
+    win.style.left = `${Math.max(0, Math.min(workArea.clientWidth - 80, left + event.clientX - startX))}px`;
+    win.style.top = `${Math.max(0, Math.min(workArea.clientHeight - handle.offsetHeight, top + event.clientY - startY))}px`;
   }
 
   function stop() {
     handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", stop);
+    handle.removeEventListener("pointercancel", stop);
   }
 }
 
@@ -706,7 +721,15 @@ function addTask(win, title) {
   task.type = "button";
   task.className = "task-item active";
   task.dataset.windowTask = win.dataset.id;
-  task.textContent = title;
+  task.title = title;
+  const glyph = document.createElement("span");
+  glyph.className = "task-glyph";
+  glyph.setAttribute("aria-hidden", "true");
+  glyph.textContent = APPS.find((app) => app.id === win.dataset.appId)?.icon || "A";
+  const label = document.createElement("span");
+  label.className = "task-label";
+  label.textContent = title;
+  task.append(glyph, label);
   task.addEventListener("click", () => {
     if (win.hidden) restoreWindow(win);
     else if (win.classList.contains("active")) minimizeWindow(win);
@@ -1422,18 +1445,19 @@ function recoverToMemoryCard(source = "system") {
 
 function scheduleAds() {
   clearInterval(adTimer);
+  clearTimeout(adInitialTimer);
   const config = getRuntimeConfig();
   if (!managedFeatureEnabled(managedContent, "adsRuntimeEnabled", config.features.ads_runtime_enabled)) return;
   const attempt = () => {
     awakenBus.emit(AWAKEN_EVENTS.ADS_SCHEDULE);
-    if (document.hidden) return;
+    if (document.hidden || !lastDesktopInteraction || Date.now() - lastDesktopInteraction < 30_000) return;
     const activeElement = document.activeElement;
     const blocked = Boolean(document.querySelector(".gallery-dirty") || activeElement?.matches("input, textarea, [contenteditable='true']") || document.querySelector(".admin-shell, [data-uploading='true']"));
     const ad = selectWeightedAd(runtimeAdDefinitions(), { now: Date.now(), sessionStartedAt, context: "desktop", records: adRecords, blocked, hidden: document.hidden, openCount: document.querySelectorAll(".window[data-ad-id]").length, maximumOpen: 2, disabled: sessionStorage.getItem("awaken.adsDisabled") === "true" });
     if (ad) showManagedAd(ad);
   };
   adTimer = window.setInterval(attempt, 30_000);
-  window.setTimeout(attempt, 45_000);
+  adInitialTimer = window.setTimeout(attempt, 45_000);
 }
 
 function startMindAssistant() {

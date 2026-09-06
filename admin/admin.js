@@ -77,6 +77,11 @@ const signOutButton = document.getElementById("admin-sign-out");
 const publishButton = document.getElementById("admin-publish");
 const publicationState = document.getElementById("publication-state");
 let editorDirty = false;
+window.addEventListener("beforeunload", (event) => {
+  if (!editorDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 setPublicationState(initialContent.source === "admin-local" ? "Local device draft / not published" : content.updatedAt ? `Live edition / ${formatDate(content.updatedAt)}` : "No live edition published", initialContent.source === "admin-local" ? "draft" : "live");
 
@@ -328,6 +333,7 @@ function captureEditor(form) {
 
 function markEditorDirty() {
   editorDirty = true;
+  setPublicationState("Unsaved editor changes / not published", "draft");
   const state = document.querySelector("[data-save-state]");
   if (state) { state.textContent = "Unsaved changes"; state.classList.remove("saved"); }
 }

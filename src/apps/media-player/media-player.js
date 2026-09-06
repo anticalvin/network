@@ -19,6 +19,30 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   let frame = 0;
   let disposed = false;
   let provider = "apple";
+  const probes = new Set();
+  let preferences = {};
+  try { preferences = JSON.parse(localStorage.getItem("awaken.player-preferences")) || {}; } catch {}
+  audio.volume = Number.isFinite(preferences.volume) ? Math.max(0, Math.min(1, preferences.volume)) : .85;
+  find("[data-volume]").value = audio.volume;
+  visualization = [0, 1, 2].includes(preferences.visualization) ? preferences.visualization : 0;
+  find("[data-viz-label]").textContent = ["SPECTRUM", "OSCILLOSCOPE", "PEAKS"][visualization];
+  find("[data-eq-on]").checked = preferences.eqEnabled !== false;
+  find("[data-preset]").value = Object.hasOwn(PRESETS, preferences.preset) ? preferences.preset : "flat";
+  applyPreset(find("[data-preset]").value);
+  if (Array.isArray(preferences.bands) && preferences.bands.length === FREQUENCIES.length) {
+    container.querySelectorAll("[data-band]").forEach((input, index) => {
+      const gain = Number(preferences.bands[index]);
+      if (Number.isFinite(gain)) { input.value = Math.max(-12, Math.min(12, gain)); input.previousElementSibling.value = input.value; }
+    });
+  }
+  function savePreferences() {
+    try { localStorage.setItem("awaken.player-preferences", JSON.stringify({ volume: audio.volume, visualization, eqEnabled: find("[data-eq-on]").checked, preset: find("[data-preset]").value, bands: [...container.querySelectorAll("[data-band]")].map((input) => Number(input.value)) })); } catch {}
+  }
+  container.addEventListener("input", savePreferences);
+  container.addEventListener("change", savePreferences);
+  const youtube = find("[data-youtube]");
+  if (safeHttpUrl(links.youtube)) youtube.href = links.youtube;
+  else youtube.hidden = true;
 
   function ensureAudioGraph() {
     if (audioContext) return audioContext;
@@ -38,6 +62,9 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
     source.connect(filters[0]);
     filters.forEach((filter, index) => filter.connect(filters[index + 1] || analyser));
     analyser.connect(audioContext.destination);
+    container.querySelectorAll("[data-band]").forEach((input, index) => {
+      filters[index].gain.value = find("[data-eq-on]").checked ? Number(input.value) : 0;
+    });
     return audioContext;
   }
 
@@ -56,18 +83,22 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
 
   async function play() {
     try {
+      if (disposed) return;
+      if (!playlist.length && !previewAudio?.src) { find("[data-status]").textContent = "Add an audio file to start listening."; return; }
       await ensureAudioGraph().resume();
+      if (disposed) return;
       if (currentIndex < 0 && playlist.length) loadTrack(0, false);
       if (currentIndex < 0 && previewAudio?.src) {
         playlist.push({ name: "AWAKEN audio preview", url: previewAudio.src, type: "AWAKEN preview" });
         loadTrack(0, false);
       }
       await audio.play();
+      if (disposed) { audio.pause(); return; }
       awakenBus.emit(AWAKEN_EVENTS.MEDIA_PLAY, { source: "local", title: playlist[currentIndex]?.name || "preview" });
       find("[data-status]").textContent = "Playing local audio";
       renderPlaylist();
     } catch (error) {
-      find("[data-status]").textContent = error.message;
+      if (!disposed) find("[data-status]").textContent = "Unable to play this audio. Try another file or source.";
     }
   }
 
@@ -86,7 +117,8 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
       if (!file.type.startsWith("audio/") && !/\.(mp3|wav|m4a|ogg|aac|flac)$/i.test(file.name)) continue;
       const track = { name: file.name, type: file.type || "audio", url: URL.createObjectURL(file) };
       const probe = new Audio(track.url);
-      probe.addEventListener("loadedmetadata", () => { track.duration = formatTime(probe.duration); renderPlaylist(); }, { once: true });
+      probes.add(probe);
+      probe.addEventListener("loadedmetadata", () => { probes.delete(probe); if (!disposed && playlist.includes(track)) { track.duration = formatTime(probe.duration); renderPlaylist(); } }, { once: true });
       playlist.push(track);
     }
     renderPlaylist();
@@ -113,16 +145,16 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   find("[data-files]").addEventListener("change", (event) => addFiles(event.target.files));
   find("[data-add]").addEventListener("click", () => find("[data-files]").click());
   find("[data-play]").addEventListener("click", play);
-  find("[data-pause]").addEventListener("click", () => { audio.pause(); awakenBus.emit(AWAKEN_EVENTS.MEDIA_PAUSE); renderPlaylist(); });
-  find("[data-stop]").addEventListener("click", () => { audio.pause(); audio.currentTime = 0; awakenBus.emit(AWAKEN_EVENTS.MEDIA_STOP); });
+  find("[data-pause]").addEventListener("click", () => { audio.pause(); awakenBus.emit(AWAKEN_EVENTS.MEDIA_PAUSE); find("[data-status]").textContent = "Paused"; renderPlaylist(); });
+  find("[data-stop]").addEventListener("click", () => { audio.pause(); audio.currentTime = 0; awakenBus.emit(AWAKEN_EVENTS.MEDIA_STOP); find("[data-status]").textContent = "Stopped"; renderPlaylist(); });
   find("[data-prev]").addEventListener("click", () => loadTrack(currentIndex - 1, true));
   find("[data-next]").addEventListener("click", () => loadTrack(currentIndex + 1, true));
-  find("[data-clear]").addEventListener("click", () => { audio.pause(); playlist.forEach((track) => URL.revokeObjectURL(track.url)); playlist = []; currentIndex = -1; audio.removeAttribute("src"); renderPlaylist(); });
+  find("[data-clear]").addEventListener("click", () => { audio.pause(); playlist.forEach((track) => URL.revokeObjectURL(track.url)); playlist = []; currentIndex = -1; audio.removeAttribute("src"); audio.load(); find("[data-title]").textContent = "No track loaded"; find("[data-current]").textContent = "0:00"; find("[data-duration]").textContent = "0:00"; find("[data-seek]").value = "0"; find("[data-status]").textContent = "Playlist cleared"; renderPlaylist(); });
   find("[data-volume]").addEventListener("input", (event) => { audio.volume = Number(event.target.value); });
   find("[data-seek]").addEventListener("input", (event) => { if (audio.duration) audio.currentTime = Number(event.target.value) / 1000 * audio.duration; });
-  find("[data-mode]").addEventListener("click", () => { visualization = (visualization + 1) % 3; find("[data-viz-label]").textContent = ["SPECTRUM", "OSCILLOSCOPE", "PEAKS"][visualization]; });
+  find("[data-mode]").addEventListener("click", () => { visualization = (visualization + 1) % 3; find("[data-viz-label]").textContent = ["SPECTRUM", "OSCILLOSCOPE", "PEAKS"][visualization]; savePreferences(); });
   find("[data-preset]").addEventListener("change", (event) => applyPreset(event.target.value));
-  find("[data-eq-on]").addEventListener("change", () => applyPreset(find("[data-preset]").value));
+  find("[data-eq-on]").addEventListener("change", () => container.querySelectorAll("[data-band]").forEach((input, index) => { if (filters[index]) filters[index].gain.value = find("[data-eq-on]").checked ? Number(input.value) : 0; }));
   container.querySelectorAll("[data-band]").forEach((input, index) => input.addEventListener("input", () => { input.previousElementSibling.value = input.value; if (filters[index]) filters[index].gain.value = find("[data-eq-on]").checked ? Number(input.value) : 0; }));
   container.querySelectorAll("[data-provider]").forEach((button) => button.addEventListener("click", () => { provider = button.dataset.provider; container.querySelectorAll("[data-provider]").forEach((item) => item.classList.toggle("active", item === button)); find("[data-stream-url]").placeholder = `Paste an official ${provider} URL`; }));
   find("[data-load-stream]").addEventListener("click", () => loadEmbed(find("[data-stream-url]").value.trim()));
@@ -130,6 +162,7 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
   container.querySelectorAll("[data-release]").forEach((button) => button.addEventListener("click", () => { const project = projects.find((item) => item.id === button.dataset.release); if (project?.url) { provider = "apple"; find("[data-stream-url]").value = project.url; loadEmbed(project.url); } }));
 
   audio.addEventListener("timeupdate", () => { find("[data-current]").textContent = formatTime(audio.currentTime); find("[data-duration]").textContent = formatTime(audio.duration); find("[data-seek]").value = audio.duration ? String(audio.currentTime / audio.duration * 1000) : "0"; });
+  audio.addEventListener("error", () => { if (!disposed && audio.getAttribute("src")) find("[data-status]").textContent = "This audio could not be loaded. Try another file or source."; });
   audio.addEventListener("ended", () => loadTrack(currentIndex + 1, true));
   drawVisualizer(find("canvas"), () => ({ analyser, visualization, disposed }), (id) => { frame = id; });
   renderPlaylist();
@@ -141,6 +174,11 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
     cancelAnimationFrame(frame);
     audio.pause();
     audio.removeAttribute("src");
+    audio.load();
+    probes.forEach((probe) => { probe.removeAttribute("src"); probe.load(); });
+    probes.clear();
+    container.removeEventListener("input", savePreferences);
+    container.removeEventListener("change", savePreferences);
     playlist.forEach((track) => URL.revokeObjectURL(track.url));
     if (audioContext) void audioContext.close();
     awakenBus.emit(AWAKEN_EVENTS.MEDIA_STOP, { reason: "closed" });
@@ -150,7 +188,7 @@ export function renderMediaPlayer(container, { projects = [], links = {}, audio:
 function playerMarkup(projects, interfaceText) {
   const name = escapeHtml(interfaceText.mediaPlayerName || "AWAKEN Media Player");
   const tagline = escapeHtml(interfaceText.mediaPlayerTagline || "AWAKEN local signal");
-  return `<div class="media-studio"><aside class="media-library"><strong>${name}</strong><span>Media Library</span><span>Admin Audio</span><span>Local Audio</span><span>Atlas Releases</span><span>Official Streams</span></aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>${tagline}</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>Verified public Atlas releases</h3><div>${projects.filter((project) => project.tracks?.length).map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button></div><div><input data-stream-url placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset>${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status>Ready / EQ controls AWAKEN-hosted and local audio</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
+  return `<div class="media-studio"><aside class="media-library"><strong>${name}</strong><span>Media Library</span><span>Admin Audio</span><span>Local Audio</span><span>Atlas Releases</span><span>Official Streams</span></aside><main class="media-main"><section class="media-now"><div class="media-art">A</div><div><h2 data-title>No track loaded</h2><p data-artist>${tagline}</p><div class="media-visual"><canvas width="900" height="250"></canvas><span data-viz-label>SPECTRUM</span></div></div></section><div class="media-transport"><button type="button" data-prev aria-label="Previous">|&lt;</button><button type="button" data-play aria-label="Play">Play</button><button type="button" data-pause aria-label="Pause">Pause</button><button type="button" data-stop aria-label="Stop">Stop</button><button type="button" data-next aria-label="Next">&gt;|</button><input data-seek aria-label="Seek" type="range" min="0" max="1000" value="0"><span><b data-current>0:00</b> / <b data-duration>0:00</b></span></div><section class="media-releases"><h3>Verified public Atlas releases</h3><div>${projects.filter((project) => project.tracks?.length).map((project) => `<button type="button" data-release="${escapeHtml(project.id)}"><img src="${escapeHtml(project.cover)}" alt=""><strong>${escapeHtml(project.title)}</strong><small>${escapeHtml(`${project.type} / ${project.year}`)}</small></button>`).join("")}</div></section><section class="media-stream"><div class="media-tabs"><button type="button" class="active" data-provider="apple">Apple Music</button><button type="button" data-provider="soundcloud">SoundCloud</button><button type="button" data-provider="spotify">Spotify</button><a data-youtube target="_blank" rel="noopener noreferrer">YouTube ↗</a></div><div><input data-stream-url aria-label="Official streaming URL" placeholder="Paste an official apple URL"><button type="button" data-load-stream>Load</button><button type="button" data-clear-stream>Clear</button></div><div class="media-stream-frame" data-stream-frame></div></section><section class="media-lower"><div class="media-playlist"><div><button type="button" data-add>Add files</button><button type="button" data-clear>Clear</button><button type="button" data-mode>Visualization</button><label>Volume <input data-volume type="range" min="0" max="1" step=".01" value=".85"></label></div><div data-tracks></div></div><aside class="media-eq"><strong>Graphic Equalizer</strong><div><label><input data-eq-on type="checkbox" checked> On</label><select data-preset aria-label="Equalizer preset">${Object.keys(PRESETS).map((preset) => `<option value="${preset}">${preset}</option>`).join("")}</select></div><div class="media-bands">${FREQUENCIES.map((frequency, index) => `<label><output>0</output><input data-band="${index}" aria-label="${frequency} Hz gain" type="range" min="-12" max="12" value="0"><span>${frequency >= 1000 ? `${frequency / 1000}k` : frequency}</span></label>`).join("")}</div></aside></section><footer data-status role="status" aria-live="polite">Ready / EQ controls AWAKEN-hosted and local audio</footer><input hidden data-files type="file" multiple accept="audio/*"></main></div>`;
 }
 
 function managedAudioTracks(media) {
@@ -168,9 +206,10 @@ function drawVisualizer(canvas, state, setFrame) {
   const context = canvas.getContext("2d");
   const frequency = new Uint8Array(512);
   const waveform = new Uint8Array(1024);
-  let tick = 0;
+  const peaks = new Float32Array(48);
   function draw() {
     const { analyser, visualization, disposed } = state();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.reducedMotion === "true";
     if (disposed) return;
     const width = canvas.width;
     const height = canvas.height;
@@ -178,22 +217,23 @@ function drawVisualizer(canvas, state, setFrame) {
     context.fillRect(0, 0, width, height);
     context.strokeStyle = "#164626";
     for (let x = 0; x < width; x += 45) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke(); }
-    if (analyser && visualization === 1) {
+    if (analyser && !reducedMotion && visualization === 1) {
       analyser.getByteTimeDomainData(waveform);
       context.strokeStyle = "#47f080";
       context.beginPath();
       waveform.forEach((value, index) => { const x = index / waveform.length * width; const y = value / 255 * height; index ? context.lineTo(x, y) : context.moveTo(x, y); });
       context.stroke();
     } else {
-      if (analyser) analyser.getByteFrequencyData(frequency);
+      if (analyser && !reducedMotion) analyser.getByteFrequencyData(frequency);
       for (let index = 0; index < 48; index += 1) {
-        const level = analyser ? frequency[Math.floor(index / 48 * frequency.length * .7)] / 255 : (Math.sin(tick / 15 + index) + 1) * .12;
+        const level = analyser && !reducedMotion ? frequency[Math.floor(index / 48 * frequency.length * .7)] / 255 : 0;
         const barHeight = Math.max(3, level * (height - 18));
         context.fillStyle = index % 3 === 0 ? "#da4a44" : index % 3 === 1 ? "#47f080" : "#d8ef37";
         context.fillRect(index * width / 48 + 2, height - barHeight, width / 48 - 4, barHeight);
+        peaks[index] = reducedMotion ? 3 : Math.max(barHeight, peaks[index] - 1.5);
+        if (visualization === 2) { context.fillStyle = "#fff"; context.fillRect(index * width / 48 + 2, height - peaks[index] - 4, width / 48 - 4, 2); }
       }
     }
-    tick += 1;
     setFrame(requestAnimationFrame(draw));
   }
   draw();

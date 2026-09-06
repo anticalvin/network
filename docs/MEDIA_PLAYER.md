@@ -5,3 +5,5 @@ The managed Media Player supports local browser-compatible audio, playlist navig
 Apple Music, SoundCloud, and Spotify URLs are parsed by provider-specific validation in `src/domain/media.js`. Official embeds are isolated from the local equalizer because protected cross-origin streams cannot be routed through Web Audio. YouTube remains an official managed link.
 
 Release cards are projected from the shell's public Atlas-derived catalogue. Private, disputed, unreleased, and low-confidence Atlas entities remain behind the existing fail-closed Atlas boundary. Set `upgraded_media_player_enabled` to `false` to roll back to a future fallback renderer.
+
+The player remembers volume, visualization, EQ enablement, preset and band gains on this device. Peaks displays decaying peak markers; reduced-motion mode keeps the canvas static. The official YouTube link uses the shared managed links. Empty playback and failed sources provide inline feedback.

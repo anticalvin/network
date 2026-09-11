@@ -39,6 +39,7 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles.css?v=experience-1" />
+  <link rel="stylesheet" href="styles/product-polish.css?v=product-1" />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -174,12 +175,11 @@
           if (event.data.stage !== "login") armEntryWatchdog();
           return;
         }
-        if (event.data.stage === "complete") {
-          finishEntry();
-        }
+        if (event.data.stage === "complete") finishEntry();
       });
     })();
   </script>
   <script type="module" src="script.js?v=experience-1"></script>
+  <script type="module" src="src/system/product-polish.js?v=product-1"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@ window.AWAKEN_CONFIG = Object.freeze({
   supabasePublishableKey: globalThis.AWAKEN_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_ASOjRsDQnouUBx4pfDVCIw_aZ_lc9PZ",
   supabaseAnonKey: globalThis.AWAKEN_SUPABASE_ANON_KEY || localStorage.getItem("awaken.supabaseAnonKey") || "",
   features: {
-    ads_runtime_enabled: true,
-    intrusion_enabled: true,
+    ads_runtime_enabled: false,
+    intrusion_enabled: false,
     gallery_studio_enabled: true,
     upgraded_media_player_enabled: true
   },

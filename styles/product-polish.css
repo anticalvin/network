@@ -1,0 +1,208 @@
+/* Product polish layer: preserve the AWAKEN OS identity while making the product calmer and easier to enter. */
+
+.desktop-icons {
+  grid-template-columns: 84px;
+  gap: 8px;
+  padding: 16px;
+}
+
+.desktop-icon {
+  min-height: 72px;
+}
+
+.window {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+}
+
+.window.active {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.44);
+}
+
+.start-list {
+  max-height: min(400px, 52vh);
+}
+
+.task-buttons {
+  scrollbar-width: none;
+}
+
+.task-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+.network-welcome {
+  position: fixed;
+  z-index: 720;
+  left: 50%;
+  top: calc(var(--topbar-h) + 24px);
+  width: min(560px, calc(100vw - 32px));
+  color: #111;
+  background: #f4f1df;
+  border: 1px solid #1d2e4f;
+  box-shadow: 10px 14px 0 rgba(0, 0, 0, 0.2), 0 24px 70px rgba(0, 0, 0, 0.38);
+  transform: translateX(-50%);
+}
+
+.network-welcome[hidden] {
+  display: none;
+}
+
+.network-welcome__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 5px 6px 5px 10px;
+  color: #fff;
+  background: linear-gradient(#2d79e6, #1451b8 56%, #0c3f9c);
+}
+
+.network-welcome__head button {
+  width: 28px;
+  min-height: 26px;
+  padding: 0;
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(#ff9b8c, #d51b12);
+  border: 1px solid #7d0b05;
+}
+
+.network-welcome__body {
+  padding: 20px;
+}
+
+.network-welcome__eyebrow {
+  margin: 0 0 6px;
+  color: #5a6372;
+  font: 11px "Courier New", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.network-welcome h2 {
+  margin: 0 0 8px;
+  font-size: clamp(22px, 4vw, 32px);
+  line-height: 1;
+}
+
+.network-welcome p {
+  margin: 0;
+  max-width: 48ch;
+  line-height: 1.5;
+}
+
+.network-welcome__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.network-welcome__actions button {
+  min-height: 62px;
+  padding: 9px;
+  text-align: left;
+  color: #111;
+  background: linear-gradient(#fff, #dfe6f5);
+  border: 1px solid #7887a3;
+}
+
+.network-welcome__actions strong,
+.network-welcome__actions span {
+  display: block;
+}
+
+.network-welcome__actions span {
+  margin-top: 3px;
+  color: #5a6372;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.network-welcome__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #c5c0a9;
+  color: #5a6372;
+  font-size: 11px;
+}
+
+.network-welcome__foot button {
+  padding: 0;
+  color: #164d9f;
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+}
+
+.network-command-hint {
+  position: fixed;
+  z-index: 120;
+  left: 50%;
+  bottom: calc(var(--taskbar-h) + 10px);
+  padding: 5px 8px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .desktop-icons {
+    grid-template-columns: repeat(3, minmax(72px, 1fr));
+    width: 100%;
+    gap: 8px;
+    padding: 14px 10px;
+  }
+
+  .desktop-icon {
+    width: 100%;
+    min-height: 84px;
+  }
+
+  .start-menu {
+    left: 4px;
+    width: calc(100vw - 8px);
+  }
+
+  .start-list {
+    max-height: 46vh;
+  }
+
+  .show-desktop {
+    display: none;
+  }
+
+  .task-item {
+    width: min(108px, 31vw);
+  }
+
+  .network-welcome {
+    top: calc(var(--topbar-h) + 8px);
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - var(--topbar-h) - var(--taskbar-h) - 16px);
+    overflow: auto;
+  }
+
+  .network-welcome__body {
+    padding: 16px;
+  }
+
+  .network-welcome__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .network-welcome__actions button {
+    min-height: 56px;
+  }
+
+  .network-command-hint {
+    display: none;
+  }
+}
